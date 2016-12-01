@@ -101,10 +101,13 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)\Dependencies\include;$(SolutionDir)\Dependencies\include\ImageMagick;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>freeglut.lib;glew32.lib;glfw3.lib;assimp-vc140-mt.lib;CORE_RL_Magick++_.lib;CORE_RL_MagickCore_.lib;CORE_RL_MagickWand_.lib;AntTweakBar64.lib;opengl32.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -133,16 +136,50 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)\Dependencies\include;$(SolutionDir)\Dependencies\include\ImageMagick;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>freeglut.lib;glew32.lib;glfw3.lib;assimp-vc140-mt.lib;CORE_RL_Magick++_.lib;CORE_RL_MagickCore_.lib;CORE_RL_MagickWand_.lib;AntTweakBar64.lib;opengl32.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\Dependencies\include\ogl\shader.cpp" />
+    <ClCompile Include="BlayneApp.cpp" />
+    <ClCompile Include="Blayne_ATB.cpp" />
     <ClCompile Include="BlayneKinect3D.cpp" />
+    <ClCompile Include="Blayne_3D_Math.cpp" />
+    <ClCompile Include="Blayne_Backend.cpp" />
+    <ClCompile Include="Blayne_Basic_Lighting.cpp" />
+    <ClCompile Include="Blayne_Camera.cpp" />
+    <ClCompile Include="Blayne_GLFW_Backend.cpp" />
+    <ClCompile Include="Blayne_Technique.cpp" />
+    <ClCompile Include="Blayne_Utilities.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Dependencies\include\ogl\shader.hpp" />
+    <ClInclude Include="Blayne_Basic_Lighting.h" />
+    <ClInclude Include="BlayneReplacementTime.h" />
+    <ClInclude Include="BlayneUniStd.h" />
+    <ClInclude Include="Blayne_App.h" />
+    <ClInclude Include="Blayne_ATB.h" />
+    <ClInclude Include="Blayne_3D_Math.h" />
+    <ClInclude Include="Blayne_Backend.h" />
+    <ClInclude Include="Blayne_Camera.h" />
+    <ClInclude Include="Blayne_Engine_Common.h" />
+    <ClInclude Include="Blayne_GLFW_Backend.h" />
+    <ClInclude Include="Blayne_Globals.h" />
+    <ClInclude Include="Blayne_Keys.h" />
+    <ClInclude Include="Blayne_Lights_Common.h" />
+    <ClInclude Include="Blayne_Technique.h" />
+    <ClInclude Include="Blayne_Transformation_Pipeline.h" />
+    <ClInclude Include="Blayne_Types.h" />
+    <ClInclude Include="Blayne_Utilities.h" />
+    <ClInclude Include="Blayne_Callbacks.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
