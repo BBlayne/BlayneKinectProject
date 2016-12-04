@@ -12,6 +12,7 @@ public:
 
 	BlayneBasicLightingTechnique();
 
+	virtual bool Init2();
 	virtual bool Init();
 
 	void SetWVP(const glm::mat4& WVP);

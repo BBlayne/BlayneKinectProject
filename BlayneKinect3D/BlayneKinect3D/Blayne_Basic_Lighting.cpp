@@ -49,18 +49,40 @@ BlayneBasicLightingTechnique::BlayneBasicLightingTechnique()
 {
 }
 
+bool BlayneBasicLightingTechnique::Init2()
+{
+	if (!Technique::Init()) {
+		return false;
+	}
+	if (!AddShader(GL_VERTEX_SHADER, "Shaders/SimpleVertexShader.vs")) {
+		return false;
+	}
+
+
+	if (!AddShader(GL_FRAGMENT_SHADER, "Shaders/TextureFragmentShader.fs")) {
+		return false;
+	}
+
+	if (!Finalize()) {
+		return false;
+	}
+
+	m_WVPLocation = GetUniformLocation("MVP");
+	m_colorTextureLocation = GetUniformLocation("myTextureSampler");
+}
+
 bool BlayneBasicLightingTechnique::Init()
 {
 	if (!Technique::Init()) {
 		return false;
 	}
 
-	if (!AddShader(GL_VERTEX_SHADER, "../Common/Shaders/basic_lighting.vs")) {
+	if (!AddShader(GL_VERTEX_SHADER, "Shaders/basic_lighting.vs")) {
 		return false;
 	}
 
 
-	if (!AddShader(GL_FRAGMENT_SHADER, "../Common/Shaders/basic_lighting.fs")) {
+	if (!AddShader(GL_FRAGMENT_SHADER, "Shaders/basic_lighting.fs")) {
 		return false;
 	}
 
@@ -173,21 +195,21 @@ bool BlayneBasicLightingTechnique::Init()
 			return false;
 		}
 	}
-
+	
 	return true;
 }
 
 void BlayneBasicLightingTechnique::SetWVP(const glm::mat4& WVP)
 {
 	//glUniformMatrix4fv(m_WVPLocation, 1, GL_TRUE, (const GLfloat*)WVP.m);
-	glUniformMatrix4fv(m_WVPLocation, 1, GL_FALSE, glm::value_ptr(WVP));
+	glUniformMatrix4fv(m_WVPLocation, 1, GL_FALSE, &WVP[0][0]);
 }
 
 
 void BlayneBasicLightingTechnique::SetWorldMatrix(const glm::mat4& WorldInverse)
 {
 	//glUniformMatrix4fv(m_WorldMatrixLocation, 1, GL_TRUE, (const GLfloat*)WorldInverse.m);
-	glUniformMatrix4fv(m_WorldMatrixLocation, 1, GL_FALSE, glm::value_ptr(WorldInverse));
+	glUniformMatrix4fv(m_WorldMatrixLocation, 1, GL_FALSE, &WorldInverse[0][0]);
 }
 
 

@@ -22,7 +22,8 @@ Blayne_Camera::Blayne_Camera(int WindowWidth, int WindowHeight, const glm::vec3&
 	m_windowWidth = WindowWidth;
 	m_windowHeight = WindowHeight;
 	m_pos = _pos;
-	m_lookDir = glm::normalize(_lookDir);
+	//m_lookDir = glm::normalize(_lookDir);
+	m_lookDir = _lookDir;
 	m_up = _up;
 
 	Init();
@@ -31,7 +32,7 @@ Blayne_Camera::Blayne_Camera(int WindowWidth, int WindowHeight, const glm::vec3&
 void Blayne_Camera::Init()
 {
 	glm::vec3 HTarget(m_lookDir.x, 0.0f, m_lookDir.z);
-	glm::normalize(HTarget);
+	HTarget = glm::normalize(HTarget);
 
 	if (HTarget.z >= 0.0f)
 	{
@@ -92,7 +93,7 @@ bool Blayne_Camera::OnKeyboardHandler(BLAYNE_KEY Key)
 	case BLAYNE_KEY_LEFT:
 	{
 		glm::vec3 Left = glm::cross(m_lookDir, m_up);
-		glm::normalize(Left);
+		Left = glm::normalize(Left);
 		Left *= STEP_SCALE;
 		m_pos += Left;
 		Ret = true;
@@ -102,7 +103,7 @@ bool Blayne_Camera::OnKeyboardHandler(BLAYNE_KEY Key)
 	case BLAYNE_KEY_RIGHT:
 	{
 		glm::vec3 Right = glm::cross(m_up, m_lookDir);
-		glm::normalize(Right);
+		Right = glm::normalize(Right);
 		Right *= STEP_SCALE;
 		m_pos += Right;
 		Ret = true;
@@ -163,7 +164,7 @@ void Blayne_Camera::OnMouseHandler(int x, int y)
 		m_OnLowerEdge = false;
 	}
 
-	Update();
+	//Update();
 }
 
 void Blayne_Camera::OnRender()
@@ -193,35 +194,36 @@ void Blayne_Camera::OnRender()
 	}
 
 	if (ShouldUpdate) {
-		Update();
+		//Update();
 	}
 }
 
 void Blayne_Camera::Update()
 {
+	
 	const glm::vec3 Vaxis(0.0f, 1.0f, 0.0f);
 
 	// Rotate the view vector by the horizontal angle around the vertical axis
 	glm::vec3 View(1.0f, 0.0f, 0.0f);
-	glm::rotate(View, m_AngleH, Vaxis);
-	glm::normalize(View);
+	View = glm::rotate(View, m_AngleH, Vaxis);
+	View = glm::normalize(View);
 	//View.Rotate(m_AngleH, Vaxis);
 	//View.Normalize();
 
 	// Rotate the view vector by the vertical angle around the horizontal axis
 	glm::vec3 Haxis = glm::cross(Vaxis, View);
-	glm::normalize(Haxis);
-	glm::rotate(View, m_AngleV, Haxis);
+	Haxis = glm::normalize(Haxis);
+	View = glm::rotate(View, m_AngleV, Haxis);
 	//glm::vec3 Haxis = Vaxis.Cross(View);	
 	//Haxis.Normalize();
 	//View.Rotate(m_AngleV, Haxis);
 
 	m_lookDir = View;
-	glm::normalize(m_lookDir);
+	m_lookDir = glm::normalize(m_lookDir);
 	//m_target.Normalize();
 
 	m_up = glm::cross(m_lookDir, Haxis);
-	glm::normalize(m_up);
+	m_up = glm::normalize(m_up);
 	//m_up = m_target.Cross(Haxis);
 	//m_up.Normalize();
 }

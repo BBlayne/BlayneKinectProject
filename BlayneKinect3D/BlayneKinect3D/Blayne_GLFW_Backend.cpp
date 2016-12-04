@@ -113,7 +113,7 @@ static void KeyCallback(GLFWwindow* pWindow, int key, int scancode, int action, 
 
 static void CursorPosCallback(GLFWwindow* pWindow, double x, double y)
 {
-	s_pCallbacks->PassiveMouseCB((int)x, (int)y);
+	s_pCallbacks->PassiveMouseHandlerCB((int)x, (int)y);
 }
 
 
@@ -127,7 +127,7 @@ static void MouseButtonCallback(GLFWwindow* pWindow, int Button, int Action, int
 
 	glfwGetCursorPos(pWindow, &x, &y);
 
-	s_pCallbacks->MouseCB(BlayneMouse, State, (int)x, (int)y);
+	s_pCallbacks->MouseClickHandlerCB(BlayneMouse, State, (int)x, (int)y);
 }
 
 static void InitCallbacks()
@@ -209,9 +209,9 @@ void GLFWBackendRun(IBlayneCallbacks* pCallbacks)
 	}
 
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	glFrontFace(GL_CW);
-	glCullFace(GL_BACK);
-	glEnable(GL_CULL_FACE);
+	//glFrontFace(GL_CCW);
+	//glCullFace(GL_BACK);
+	//glEnable(GL_CULL_FACE);
 
 	if (sWithDepth) {
 		glEnable(GL_DEPTH_TEST);

@@ -155,10 +155,15 @@
     <ClCompile Include="Blayne_3D_Math.cpp" />
     <ClCompile Include="Blayne_Backend.cpp" />
     <ClCompile Include="Blayne_Basic_Lighting.cpp" />
+    <ClCompile Include="Blayne_Basic_Mesh.cpp" />
     <ClCompile Include="Blayne_Camera.cpp" />
     <ClCompile Include="Blayne_GLFW_Backend.cpp" />
+    <ClCompile Include="Blayne_Pipeline.cpp" />
     <ClCompile Include="Blayne_Technique.cpp" />
     <ClCompile Include="Blayne_Utilities.cpp" />
+    <ClCompile Include="bMesh.cpp" />
+    <ClCompile Include="bTexture.cpp" />
+    <ClCompile Include="vboindexer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Dependencies\include\ogl\shader.hpp" />
@@ -169,17 +174,22 @@
     <ClInclude Include="Blayne_ATB.h" />
     <ClInclude Include="Blayne_3D_Math.h" />
     <ClInclude Include="Blayne_Backend.h" />
+    <ClInclude Include="Blayne_Basic_Mesh.h" />
     <ClInclude Include="Blayne_Camera.h" />
     <ClInclude Include="Blayne_Engine_Common.h" />
     <ClInclude Include="Blayne_GLFW_Backend.h" />
     <ClInclude Include="Blayne_Globals.h" />
     <ClInclude Include="Blayne_Keys.h" />
     <ClInclude Include="Blayne_Lights_Common.h" />
+    <ClInclude Include="Blayne_Pipeline.h" />
     <ClInclude Include="Blayne_Technique.h" />
     <ClInclude Include="Blayne_Transformation_Pipeline.h" />
     <ClInclude Include="Blayne_Types.h" />
     <ClInclude Include="Blayne_Utilities.h" />
     <ClInclude Include="Blayne_Callbacks.h" />
+    <ClInclude Include="bMesh.h" />
+    <ClInclude Include="bTexture.h" />
+    <ClInclude Include="vboindexer.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

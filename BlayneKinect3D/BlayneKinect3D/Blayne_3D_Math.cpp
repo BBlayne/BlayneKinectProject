@@ -1,5 +1,43 @@
 #include "Blayne_3D_Math.h"
 
+glm::mat4 Blayne_3D_Math::InitScaleTransform(float ScaleX, float ScaleY, float ScaleZ) {
+	return glm::scale(glm::vec3(ScaleX, ScaleY, ScaleZ));
+}
+
+glm::mat4 Blayne_3D_Math::InitRotateTransform(float RotateX, float RotateY, float RotateZ) {
+	return glm::eulerAngleXYZ(RotateX, RotateY, RotateZ);
+}
+
+glm::mat4 Blayne_3D_Math::InitRotateTransform(const glm::quat& _quat) {
+	return glm::mat4_cast(_quat);
+}
+
+glm::mat4 Blayne_3D_Math::InitTranslationTransform(float x, float y, float z) {
+	return glm::translate(glm::vec3(x, y, z));
+}
+
+glm::mat4 Blayne_3D_Math::InitCameraTransform(const glm::vec3& Position, const glm::vec3& LookDir, const glm::vec3& Up) {
+	glm::vec3 N = glm::normalize(LookDir);
+	glm::vec3 U = glm::normalize(Up);
+	U = glm::cross(U, N);
+	glm::vec3 V = glm::cross(N, U);
+
+	// My Instincts.
+	return glm::lookAt(Position, 
+						LookDir, 
+							Up);
+}
+
+glm::mat4 Blayne_3D_Math::InitPersProjTransform(const PersProjInfo& p) {
+	return glm::perspective(p.FOV, p.aspect_ratio, p.zNear, p.zFar);
+}
+
+glm::mat4 Blayne_3D_Math::InitOrthoProjTransform(const OrthoProjInfo& p) {
+	// HRM? Might be p.l / 2 etc etc etc etc etc
+	return glm::ortho(p.l, p.r, p.b, p.t, p.n, p.f);
+}
+
+
 aiMatrix4x4 Blayne_3D_Math::fromMatrix3x3(const aiMatrix3x3& AssimpMatrix)
 {
 	aiMatrix4x4 m(AssimpMatrix);

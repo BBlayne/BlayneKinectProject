@@ -41,7 +41,11 @@ using namespace glm;
 #include "Blayne_Backend.h"
 #include "Blayne_Basic_Lighting.h"
 #include "Blayne_Engine_Common.h"
+#include "Blayne_3D_Math.h"
+#include "Blayne_Pipeline.h"
+#include "Blayne_Basic_Mesh.h"
 
+int gGLMajorVersion = 0;
 /* 
 *	Globals for the Main program and App.
 */
@@ -54,11 +58,16 @@ typedef enum { CHEB, UNITYCHAN, STEVE, ADRIAN } MESH_TYPE;
 class BlayneKinect3D : public IBlayneCallbacks, public BlayneApp
 {
 private:
+	std::vector<BlayneBasicLightingTechnique> m_LightingTechs;
 	BlayneBasicLightingTechnique m_LightingTech;
 	Blayne_Camera* m_pGameCamera;
 	DirectionalLight m_directionalLight;
 	// Basic Meshes Array?
-	//PersProjInfo
+	std::vector<BasicMesh*> m_BasicMeshes;
+	PersProjInfo m_persProjInfo;
+	OrthoProjInfo m_orthoProjInfo;
+	std::vector<Blayne_Pipeline> m_pipelines;
+	Blayne_Pipeline m_pipeline;
 	Blayne_ATB m_atb;
 	// Mesh type? Some weird Enum if bunch of meshes, probably ignore?
 	MESH_TYPE m_currentMesh;
@@ -66,7 +75,41 @@ private:
 	TwBar *bar;
 public:
 	BlayneKinect3D() { 
-	
+		m_pGameCamera = NULL;
+
+		m_directionalLight.Name = "DirLight1";
+		m_directionalLight.Color = glm::vec3(1.0f, 1.0f, 1.0f);
+		m_directionalLight.AmbientIntensity = 0.66f;
+		m_directionalLight.DiffuseIntensity = 1.0f;
+		m_directionalLight.Direction = glm::vec3(1.0f, 0.0, 0.0);
+
+		// Default Pipeline
+		float aspect_ratio = (float)WINDOW_WIDTH / WINDOW_HEIGHT;
+
+		m_persProjInfo.FOV = 45.0f;
+		m_persProjInfo.Height = WINDOW_HEIGHT;
+		m_persProjInfo.Width = WINDOW_WIDTH;
+		m_persProjInfo.aspect_ratio = aspect_ratio;
+		m_persProjInfo.zNear = 0.1f;
+		m_persProjInfo.zFar = 1000.0f;
+
+		float zoom = 1.0f;
+		
+		m_orthoProjInfo.l = -1.0f * zoom;
+		m_orthoProjInfo.r = 1.0f * zoom;
+		m_orthoProjInfo.b = -1.0f / aspect_ratio * zoom;
+		m_orthoProjInfo.t = 1.0f / aspect_ratio * zoom;
+		m_orthoProjInfo.n = -0.1f;
+		m_orthoProjInfo.f = 1000.0f;
+
+		m_pipeline.SetPerspectiveProj(m_persProjInfo);
+		m_pipeline.SetOrthographicProj(m_orthoProjInfo);
+
+
+
+		// Set Current Mesh?
+		// What's this do?
+		glGetIntegerv(GL_MAJOR_VERSION, &gGLMajorVersion); 
 	}
 
 	~BlayneKinect3D()
@@ -80,52 +123,185 @@ public:
 			return false;
 		}
 
-		glm::vec3 Pos(0.0f, 0.0f, 0.0f);
-		glm::vec3 LookAt(0.0f, -1.0f, 1.0f);
+		glm::vec3 Pos(0.0f, 0.0f, -2.0f);
+		glm::vec3 LookAt(0.0f, 0.0f, 1.0f);
 		glm::vec3 Up(0.0f, 1.0f, 0.0f);
 
 		m_pGameCamera = new Blayne_Camera(WINDOW_WIDTH, WINDOW_HEIGHT, Pos, LookAt, Up);
-
 		if (!m_LightingTech.Init()) {
-			OGLDEV_ERROR("Error initializing the lighting technique\n");
+			printf("Error initializing the lighting technique\n");
+			OGLDEV_ERROR("Error initializing the lighting technique\n");			
 			return false;
 		}
 
-		m_LightingTech.Enable();
 
-		m_LightingTech.SetColorTextureUnit(COLOR_TEXTURE_UNIT_INDEX);
-		m_LightingTech.SetDirectionalLight(m_directionalLight);
-		m_LightingTech.SetMatSpecularIntensity(0.0f);
-		m_LightingTech.SetMatSpecularPower(0);
+		m_LightingTech.Enable();
+		printf("m_LightingTech enabled\n");
+
+		//m_LightingTech.SetColorTextureUnit(COLOR_TEXTURE_UNIT_INDEX);
+		//m_LightingTech.SetDirectionalLight(m_directionalLight);
+		//m_LightingTech.SetMatSpecularIntensity(0.0f);
+		//m_LightingTech.SetMatSpecularPower(0);
 
 		// Load Meshes Here.
+		BasicMesh* mesh = new BasicMesh();
+		if (!mesh->LoadMesh("StandardCube.fbx")) {
+			printf(" Did not load mesh?\n");
+			return false;
+		}
+		mesh->GetOrientation().m_translation = glm::vec3(0.0f, 0.0f, 5.0f);
+		mesh->GetOrientation().m_rotation = glm::vec3(0.0f, 0.0f, 0.0f);
+		m_BasicMeshes.push_back(mesh);
+		//m_pipelines.push_back(m_pipeline);
+		BasicMesh* mesh2 = new BasicMesh();
+		if (!mesh2->LoadMesh("BasicCheb.fbx")) {
+			printf(" Did not load mesh?\n");
+			return false;
+		}
+		mesh2->GetOrientation().m_translation = glm::vec3(2.0f, 0.0f, 5.0f);
+		mesh2->GetOrientation().m_rotation = glm::vec3(0.0f, 0.0f, 0.0f);
+		m_BasicMeshes.push_back(mesh2);
+		//m_pipelines.push_back(m_pipeline);
 		// Set Orientation of one of them?
+
+		Blayne_Pipeline mPipe2 = m_pipeline;
+		m_pipelines.push_back(mPipe2);
+		// TwBar stuff.
+		bar = TwNewBar("Blayne's Kinect v2.0 3D App.");
+
+		m_pGameCamera->AddToATB(bar);
+		m_directionalLight.AddToATB(bar);
+		float refresh = 0.1f;
+		TwSetParam(bar, NULL, "refresh", TW_PARAM_FLOAT, 1, &refresh);
+		// Message added to the help bar.
+		TwDefine(" GLOBAL help='This example shows how to integrate AntTweakBar with OGLDEV.' "); 
+		TwAddVarRO(bar, "GL Major Version", TW_TYPE_INT32, &gGLMajorVersion, " label='Major version of GL' ");
+
+		return true;
 	}
 
-	void RenderScene()
+	virtual void RenderSceneCB()
 	{
+		// Handle camera being rotated via user edging
+		// the mouse along the edge of the screen.
+		// m_pGameCamera->OnRender();      
 
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// Set the camera position for the lighting, and pass our directional light
+		// to our lighting system.
+		m_LightingTech.SetEyeWorldPos(m_pGameCamera->GetCameraPosition());
+		m_LightingTech.SetDirectionalLight(m_directionalLight);
+
+		// Pass our camera object to our pipeline object.
+		m_pipeline.SetCamera(*m_pGameCamera);
+		m_pipelines[0].SetCamera(*m_pGameCamera);
+
+		// Perhaps set object orientation here.
+		// m_mesh[m_currentMesh].GetOrientation().m_rotation = g_Rotation.ToDegrees();
+		m_pipeline.Orient(m_BasicMeshes[0]->GetOrientation());
+		m_LightingTech.SetWVP(m_pipeline.GetWVPTrans());
+		m_LightingTech.SetWorldMatrix(m_pipeline.GetWorldTrans());
+		m_BasicMeshes[0]->Render();
+		//m_pipelines
+		m_pipelines[0].Orient(m_BasicMeshes[1]->GetOrientation());
+		m_LightingTech.SetWVP(m_pipelines[0].GetWVPTrans());
+		m_LightingTech.SetWorldMatrix(m_pipelines[0].GetWorldTrans());
+		m_BasicMeshes[1]->Render();
+		// Update MVP.
+		for (int i = 0; i < m_BasicMeshes.size(); i++)
+		{
+
+			//m_pipeline.Orient(m_BasicMeshes[0]->GetOrientation());
+			//m_LightingTech.SetWVP(m_pipeline.GetWVPTrans());
+			//m_LightingTech.SetWorldMatrix(m_pipeline.GetWorldTrans());
+
+			// Render the Mesh
+			// m_mesh[m_currentMesh].Render();    
+			//m_BasicMeshes[i]->Render();
+		}		
+		//  RenderFPS();     
+		CalcFPS();
+
+		BlayneBackendSwapBuffers();
 	}
 
-	void KeyboardHandler()
+	virtual void KeyboardCB(BLAYNE_KEY BlayneKey, BLAYNE_KEY_STATE BlayneKeyState)
 	{
+		if (BlayneKeyState == BLAYNE_KEY_STATE_PRESS)
+		{
+			if (m_atb.KeyboardCB(BlayneKey))
+			{
+				return;
+			}
+		}
 
+		switch (BlayneKey) {
+			case BLAYNE_KEY_A:
+			{
+				break;
+			}
+			case BLAYNE_KEY_B:
+			{
+				break;
+			}
+			case BLAYNE_KEY_C:
+			{
+				break;
+			}
+			case BLAYNE_KEY_ESCAPE:
+			case BLAYNE_KEY_q:
+			{
+				BlayneBackendLeaveMainLoop();
+				break;
+			}
+			default:
+				m_pGameCamera->OnKeyboardHandler(BlayneKey);
+		}
 	}
 
-	void MouseClickHandler()
+	virtual void MouseClickHandlerCB(BLAYNE_MOUSE Button, BLAYNE_KEY_STATE State, int x, int y)
 	{
-
+		m_atb.MouseCB(Button, State, x, y);
 	}
 
-	void PassiveMouseHandler()
+	virtual void PassiveMouseHandlerCB(int x, int y)
 	{
+		if (!m_atb.PassiveMouseCB(x, y))
+		{
+			m_pGameCamera->OnMouseHandler(x, y);
+		}
+	}
 
+	void Run()
+	{
+		BlayneBackendRun(this);
 	}
 };
 
 int main(int argc, char** argv)
 {
-	
+	BlayneBackendInit(BLAYNE_BACKEND_TYPE_GLFW, argc, argv, true, false);
+	if (!BlayneBackendCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, false, "BlayneKinect3D")) {
+		BlayneBackendTerminate();
+		std::cin.get();
+		return 1;
+	}
 
+	BlayneKinect3D* blayneKinect3DApp = new BlayneKinect3D();
+
+	if (!blayneKinect3DApp->Init())
+	{
+		printf("Something went wrong init'ing program.\n");
+		delete blayneKinect3DApp;
+		BlayneBackendTerminate();
+		std::cin.get();
+		return 1;
+	}
+
+	blayneKinect3DApp->Run();
+
+	BlayneBackendTerminate();
+	//std::cin.get();
 	return 0;
 }

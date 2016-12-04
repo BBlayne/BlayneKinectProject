@@ -54,72 +54,71 @@ static int BlayneKeyToATBKey(BLAYNE_KEY BlayneKey)
 	}
 
 	switch (BlayneKey) {
+		case BLAYNE_KEY_BACKSPACE:
+			return TW_KEY_BACKSPACE;
+		case BLAYNE_KEY_TAB:
+			return TW_KEY_TAB;
+			//            return TW_KEY_CLEAR;
+		case BLAYNE_KEY_ENTER:
+			return TW_KEY_RETURN;
 
-	case BLAYNE_KEY_BACKSPACE:
-		return TW_KEY_BACKSPACE;
-	case BLAYNE_KEY_TAB:
-		return TW_KEY_TAB;
-		//            return TW_KEY_CLEAR;
-	case BLAYNE_KEY_ENTER:
-		return TW_KEY_RETURN;
-
-		//return TW_KEY_PAUSE;
-	case BLAYNE_KEY_ESCAPE:
-		return TW_KEY_ESCAPE;
-	case BLAYNE_KEY_DELETE:
-		return TW_KEY_DELETE;
-	case BLAYNE_KEY_UP:
-		return TW_KEY_UP;
-	case BLAYNE_KEY_DOWN:
-		return TW_KEY_DOWN;
-	case BLAYNE_KEY_RIGHT:
-		return TW_KEY_RIGHT;
-	case BLAYNE_KEY_LEFT:
-		return TW_KEY_LEFT;
-	case BLAYNE_KEY_INSERT:
-		return TW_KEY_INSERT;
-	case BLAYNE_KEY_HOME:
-		return TW_KEY_HOME;
-	case BLAYNE_KEY_END:
-		return TW_KEY_END;
-	case BLAYNE_KEY_PAGE_UP:
-		return TW_KEY_PAGE_UP;
-	case BLAYNE_KEY_PAGE_DOWN:
-		return TW_KEY_PAGE_DOWN;
-	case BLAYNE_KEY_F1:
-		return TW_KEY_F1;
-	case BLAYNE_KEY_F2:
-		return TW_KEY_F2;
-	case BLAYNE_KEY_F3:
-		return TW_KEY_F3;
-	case BLAYNE_KEY_F4:
-		return TW_KEY_F4;
-	case BLAYNE_KEY_F5:
-		return TW_KEY_F5;
-	case BLAYNE_KEY_F6:
-		return TW_KEY_F6;
-	case BLAYNE_KEY_F7:
-		return TW_KEY_F7;
-	case BLAYNE_KEY_F8:
-		return TW_KEY_F8;
-	case BLAYNE_KEY_F9:
-		return TW_KEY_F9;
-	case BLAYNE_KEY_F10:
-		return TW_KEY_F10;
-	case BLAYNE_KEY_F11:
-		return TW_KEY_F11;
-	case BLAYNE_KEY_F12:
-		return TW_KEY_F12;
-	default:
-		OGLDEV_ERROR("Unimplemented OGLDEV to ATB key");
+			//return TW_KEY_PAUSE;
+		case BLAYNE_KEY_ESCAPE:
+			return TW_KEY_ESCAPE;
+		case BLAYNE_KEY_DELETE:
+			return TW_KEY_DELETE;
+		case BLAYNE_KEY_UP:
+			return TW_KEY_UP;
+		case BLAYNE_KEY_DOWN:
+			return TW_KEY_DOWN;
+		case BLAYNE_KEY_RIGHT:
+			return TW_KEY_RIGHT;
+		case BLAYNE_KEY_LEFT:
+			return TW_KEY_LEFT;
+		case BLAYNE_KEY_INSERT:
+			return TW_KEY_INSERT;
+		case BLAYNE_KEY_HOME:
+			return TW_KEY_HOME;
+		case BLAYNE_KEY_END:
+			return TW_KEY_END;
+		case BLAYNE_KEY_PAGE_UP:
+			return TW_KEY_PAGE_UP;
+		case BLAYNE_KEY_PAGE_DOWN:
+			return TW_KEY_PAGE_DOWN;
+		case BLAYNE_KEY_F1:
+			return TW_KEY_F1;
+		case BLAYNE_KEY_F2:
+			return TW_KEY_F2;
+		case BLAYNE_KEY_F3:
+			return TW_KEY_F3;
+		case BLAYNE_KEY_F4:
+			return TW_KEY_F4;
+		case BLAYNE_KEY_F5:
+			return TW_KEY_F5;
+		case BLAYNE_KEY_F6:
+			return TW_KEY_F6;
+		case BLAYNE_KEY_F7:
+			return TW_KEY_F7;
+		case BLAYNE_KEY_F8:
+			return TW_KEY_F8;
+		case BLAYNE_KEY_F9:
+			return TW_KEY_F9;
+		case BLAYNE_KEY_F10:
+			return TW_KEY_F10;
+		case BLAYNE_KEY_F11:
+			return TW_KEY_F11;
+		case BLAYNE_KEY_F12:
+			return TW_KEY_F12;
+		default:
+			OGLDEV_ERROR("Unimplemented OGLDEV to ATB key");
 	}
 
 	return TW_KEY_LAST;
 }
 
-bool Blayne_ATB::KeyboardCB(BLAYNE_KEY OgldevKey)
+bool Blayne_ATB::KeyboardCB(BLAYNE_KEY BlayneKey)
 {
-	int ATBKey = BlayneKeyToATBKey(OgldevKey);
+	int ATBKey = BlayneKeyToATBKey(BlayneKey);
 
 	if (ATBKey == TW_KEY_LAST) {
 		return false;
