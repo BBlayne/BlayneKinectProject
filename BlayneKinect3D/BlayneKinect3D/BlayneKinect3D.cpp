@@ -44,6 +44,8 @@ using namespace glm;
 #include "Blayne_3D_Math.h"
 #include "Blayne_Pipeline.h"
 #include "Blayne_Basic_Mesh.h"
+#include "BlayneRenderToTexture.h"
+
 
 int gGLMajorVersion = 0;
 /* 
@@ -73,6 +75,7 @@ private:
 	MESH_TYPE m_currentMesh;
 	float m_rotationSpeed; // camera? Or Mesh's we're looking at?
 	TwBar *bar;
+	RenderToTexture m_RenderToTexturer;
 public:
 	BlayneKinect3D() { 
 		m_pGameCamera = NULL;
@@ -117,6 +120,8 @@ public:
 		SAFE_DELETE(m_pGameCamera);
 	}
 
+
+
 	bool Init()
 	{
 		if (!m_atb.Init()) {
@@ -138,10 +143,10 @@ public:
 		m_LightingTech.Enable();
 		printf("m_LightingTech enabled\n");
 
-		//m_LightingTech.SetColorTextureUnit(COLOR_TEXTURE_UNIT_INDEX);
-		//m_LightingTech.SetDirectionalLight(m_directionalLight);
-		//m_LightingTech.SetMatSpecularIntensity(0.0f);
-		//m_LightingTech.SetMatSpecularPower(0);
+		m_LightingTech.SetColorTextureUnit(COLOR_TEXTURE_UNIT_INDEX);
+		m_LightingTech.SetDirectionalLight(m_directionalLight);
+		m_LightingTech.SetMatSpecularIntensity(0.0f);
+		m_LightingTech.SetMatSpecularPower(0);
 
 		// Load Meshes Here.
 		BasicMesh* mesh = new BasicMesh();
@@ -177,16 +182,33 @@ public:
 		TwDefine(" GLOBAL help='This example shows how to integrate AntTweakBar with OGLDEV.' "); 
 		TwAddVarRO(bar, "GL Major Version", TW_TYPE_INT32, &gGLMajorVersion, " label='Major version of GL' ");
 
+		
+		if (!m_RenderToTexturer.InitFrameBuffer(WINDOW_WIDTH, WINDOW_HEIGHT))
+		{
+			printf(" Did not init frame buffer?\n");
+			return false;
+		}
+		
+		if (!m_RenderToTexturer.InitShaders())
+		{
+			printf(" Did not init shaders for frame buffer?\n");
+			return false;
+		}
+
 		return true;
 	}
 
 	virtual void RenderSceneCB()
 	{
+		m_RenderToTexturer.RenderToFrameBuffer();
 		// Handle camera being rotated via user edging
 		// the mouse along the edge of the screen.
-		// m_pGameCamera->OnRender();      
-
+		m_pGameCamera->OnRender();      
+		glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// Use our shader
+		m_LightingTech.Enable();
 
 		// Set the camera position for the lighting, and pass our directional light
 		// to our lighting system.
@@ -221,6 +243,9 @@ public:
 			//m_BasicMeshes[i]->Render();
 		}		
 		//  RenderFPS();     
+		m_RenderToTexturer.RenderToScreen();
+		m_RenderToTexturer.Render();
+
 		CalcFPS();
 
 		BlayneBackendSwapBuffers();

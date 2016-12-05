@@ -63,6 +63,9 @@
     <ClCompile Include="Blayne_Basic_Mesh.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Blayne_Render_To_Texture.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Blayne_Utilities.h">
@@ -135,6 +138,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Blayne_Basic_Mesh.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BlayneRenderToTexture.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

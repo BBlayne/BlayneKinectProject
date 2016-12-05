@@ -194,7 +194,7 @@ void Blayne_Camera::OnRender()
 	}
 
 	if (ShouldUpdate) {
-		//Update();
+		Update();
 	}
 }
 

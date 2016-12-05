@@ -159,6 +159,7 @@
     <ClCompile Include="Blayne_Camera.cpp" />
     <ClCompile Include="Blayne_GLFW_Backend.cpp" />
     <ClCompile Include="Blayne_Pipeline.cpp" />
+    <ClCompile Include="Blayne_Render_To_Texture.cpp" />
     <ClCompile Include="Blayne_Technique.cpp" />
     <ClCompile Include="Blayne_Utilities.cpp" />
     <ClCompile Include="bMesh.cpp" />
@@ -167,6 +168,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Dependencies\include\ogl\shader.hpp" />
+    <ClInclude Include="BlayneRenderToTexture.h" />
     <ClInclude Include="Blayne_Basic_Lighting.h" />
     <ClInclude Include="BlayneReplacementTime.h" />
     <ClInclude Include="BlayneUniStd.h" />

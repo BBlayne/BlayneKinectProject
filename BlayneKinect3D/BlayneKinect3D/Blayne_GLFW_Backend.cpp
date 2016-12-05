@@ -208,7 +208,7 @@ void GLFWBackendRun(IBlayneCallbacks* pCallbacks)
 		exit(1);
 	}
 
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
 	//glFrontFace(GL_CCW);
 	//glCullFace(GL_BACK);
 	//glEnable(GL_CULL_FACE);
