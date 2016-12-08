@@ -11,7 +11,7 @@ void BlayneBackendInit(BLAYNE_BACKEND_TYPE BackendType, int argc, char** argv, b
 
 void BlayneBackendTerminate();
 
-bool BlayneBackendCreateWindow(Blayne_Types::uint Width, Blayne_Types::uint Height, bool isFullScreen, const char* pTitle);
+bool BlayneBackendCreateWindow(Blayne_Types::uint32 Width, Blayne_Types::uint32 Height, bool isFullScreen, const char* pTitle);
 
 void BlayneBackendRun(IBlayneCallbacks* pCallbacks);
 
@@ -19,4 +19,4 @@ void BlayneBackendLeaveMainLoop();
 
 void BlayneBackendSwapBuffers();
 
-void BlayneBackendSetMousePos(Blayne_Types::uint x, Blayne_Types::uint y);
+void BlayneBackendSetMousePos(Blayne_Types::uint32 x, Blayne_Types::uint32 y);

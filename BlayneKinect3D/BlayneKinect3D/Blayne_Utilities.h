@@ -17,8 +17,8 @@ using namespace std;
 
 bool ReadFile(const char* fileName, string& outFile);
 
-void OgldevError(const char* pFileName, Blayne_Types::uint line, const char* pError);
-void OgldevFileError(const char* pFileName, Blayne_Types::uint line, const char* pFileError);
+void OgldevError(const char* pFileName, Blayne_Types::uint32 line, const char* pError);
+void OgldevFileError(const char* pFileName, Blayne_Types::uint32 line, const char* pFileError);
 
 #define OGLDEV_ERROR(Error) OgldevError(__FILE__, __LINE__, Error);
 #define OGLDEV_FILE_ERROR(FileError) OgldevFileError(__FILE__, __LINE__, FileError);

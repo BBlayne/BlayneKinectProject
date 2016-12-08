@@ -13,6 +13,10 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <chrono>
+
+using namespace std::chrono;
+typedef steady_clock Clock;
 
 using namespace glm;
 
@@ -45,6 +49,7 @@ using namespace glm;
 #include "Blayne_Pipeline.h"
 #include "Blayne_Basic_Mesh.h"
 #include "BlayneRenderToTexture.h"
+#include "Blayne_Kinect.h"
 
 
 int gGLMajorVersion = 0;
@@ -56,6 +61,53 @@ int gGLMajorVersion = 0;
 #define WINDOW_HEIGHT 768
 
 typedef enum { CHEB, UNITYCHAN, STEVE, ADRIAN } MESH_TYPE;
+
+#define imageWidth 1024
+#define imageHeight 1024
+//static GLubyte checkImage[imageHeight][imageWidth][4];
+const int channels = 4;
+static GLubyte* checkImage;
+static GLuint texName;
+
+auto lastTime = Clock::now();
+
+void makeCheckImage()
+{
+	checkImage = new GLubyte[imageHeight*imageWidth*channels];
+	int i, j, c;
+
+	for (i = 0; i < imageHeight; i++) {
+		for (j = 0; j < imageWidth; j++) {
+			c = ((((i & 0x8) == 0) ^ ((j & 0x8)) == 0)) * 255;
+			checkImage[(i*imageWidth + j)*4+0] = (GLubyte)c;
+			checkImage[(i*imageWidth + j)*4+1] = (GLubyte)c;
+			checkImage[(i*imageWidth + j)*4+2] = (GLubyte)c;
+			checkImage[(i*imageWidth + j)*4+3] = (GLubyte)255;
+		}
+	}
+}
+
+void initImage()
+{
+
+	/* ... */
+
+	makeCheckImage();
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+	glGenTextures(1, &texName);
+	glBindTexture(GL_TEXTURE_2D, texName);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
+		GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+		GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, imageWidth,
+		imageHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+		checkImage);
+}
 
 class BlayneKinect3D : public IBlayneCallbacks, public BlayneApp
 {
@@ -76,6 +128,7 @@ private:
 	float m_rotationSpeed; // camera? Or Mesh's we're looking at?
 	TwBar *bar;
 	RenderToTexture m_RenderToTexturer;
+	BlayneKinect* m_KinectObj;
 public:
 	BlayneKinect3D() { 
 		m_pGameCamera = NULL;
@@ -124,6 +177,8 @@ public:
 
 	bool Init()
 	{
+		m_KinectObj = new BlayneKinect(WINDOW_WIDTH, WINDOW_HEIGHT);
+
 		if (!m_atb.Init()) {
 			return false;
 		}
@@ -131,6 +186,9 @@ public:
 		glm::vec3 Pos(0.0f, 0.0f, -2.0f);
 		glm::vec3 LookAt(0.0f, 0.0f, 1.0f);
 		glm::vec3 Up(0.0f, 1.0f, 0.0f);
+
+		//initImage();
+
 
 		m_pGameCamera = new Blayne_Camera(WINDOW_WIDTH, WINDOW_HEIGHT, Pos, LookAt, Up);
 		if (!m_LightingTech.Init()) {
@@ -182,8 +240,8 @@ public:
 		TwDefine(" GLOBAL help='This example shows how to integrate AntTweakBar with OGLDEV.' "); 
 		TwAddVarRO(bar, "GL Major Version", TW_TYPE_INT32, &gGLMajorVersion, " label='Major version of GL' ");
 
-		
-		if (!m_RenderToTexturer.InitFrameBuffer(WINDOW_WIDTH, WINDOW_HEIGHT))
+		/*
+		if (!m_RenderToTexturer.InitFrameBuffer(WINDOW_WIDTH, WINDOW_HEIGHT, texName))
 		{
 			printf(" Did not init frame buffer?\n");
 			return false;
@@ -194,16 +252,33 @@ public:
 			printf(" Did not init shaders for frame buffer?\n");
 			return false;
 		}
+		*/
+
+		if (!m_KinectObj->KinectInit())
+		{
+			printf(" Did not init kinect?\n");
+			return false;
+		}
+
+		if (!m_KinectObj->InitShaders())
+		{
+			printf(" Did not init kinect shaders?\n");
+			return false;
+		}
+
+		m_KinectObj->InitRenderTarget();
+
+		lastTime = Clock::now();
 
 		return true;
 	}
 
 	virtual void RenderSceneCB()
 	{
-		m_RenderToTexturer.RenderToFrameBuffer();
+		//m_RenderToTexturer.RenderToFrameBuffer();
 		// Handle camera being rotated via user edging
 		// the mouse along the edge of the screen.
-		m_pGameCamera->OnRender();      
+		//m_pGameCamera->OnRender();      
 		glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -243,10 +318,23 @@ public:
 			//m_BasicMeshes[i]->Render();
 		}		
 		//  RenderFPS();     
-		m_RenderToTexturer.RenderToScreen();
-		m_RenderToTexturer.Render();
+		//m_RenderToTexturer.RenderToScreen();
+		//m_RenderToTexturer.Render(texName);
+		
+
 
 		CalcFPS();
+		//calculate delta time
+		const auto now = Clock::now();
+		const auto duration = duration_cast<microseconds>(now - lastTime);
+		const float deltaTime = duration.count() / 1000000.0f;
+		lastTime = now;
+
+
+		m_KinectObj->Tick(deltaTime);
+		//printf("DT: %.3f \n", deltaTime);
+		m_KinectObj->ConvertColourBufferToTexture();
+		m_KinectObj->DrawPixelBuffer();
 
 		BlayneBackendSwapBuffers();
 	}

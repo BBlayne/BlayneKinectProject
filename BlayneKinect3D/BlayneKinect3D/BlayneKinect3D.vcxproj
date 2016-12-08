@@ -101,13 +101,13 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)\Dependencies\include;$(SolutionDir)\Dependencies\include\ImageMagick;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\Dependencies\include;$(SolutionDir)\Dependencies\include\ImageMagick;$(KINECTSDK20_DIR)inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>freeglut.lib;glew32.lib;glfw3.lib;assimp-vc140-mt.lib;CORE_RL_Magick++_.lib;CORE_RL_MagickCore_.lib;CORE_RL_MagickWand_.lib;AntTweakBar64.lib;opengl32.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\Release;$(KINECTSDK20_DIR)Lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>freeglut.lib;glew32.lib;glfw3.lib;assimp-vc140-mt.lib;CORE_RL_Magick++_.lib;CORE_RL_MagickCore_.lib;CORE_RL_MagickWand_.lib;AntTweakBar64.lib;opengl32.lib;freetype.lib;Kinect20.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -136,15 +136,15 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)\Dependencies\include;$(SolutionDir)\Dependencies\include\ImageMagick;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\Dependencies\include;$(SolutionDir)\Dependencies\include\ImageMagick;$(KINECTSDK20_DIR)inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>freeglut.lib;glew32.lib;glfw3.lib;assimp-vc140-mt.lib;CORE_RL_Magick++_.lib;CORE_RL_MagickCore_.lib;CORE_RL_MagickWand_.lib;AntTweakBar64.lib;opengl32.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)Dependencies\Release;$(KINECTSDK20_DIR)Lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>freeglut.lib;glew32.lib;glfw3.lib;assimp-vc140-mt.lib;CORE_RL_Magick++_.lib;CORE_RL_MagickCore_.lib;CORE_RL_MagickWand_.lib;AntTweakBar64.lib;opengl32.lib;freetype.lib;Kinect20.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -158,6 +158,7 @@
     <ClCompile Include="Blayne_Basic_Mesh.cpp" />
     <ClCompile Include="Blayne_Camera.cpp" />
     <ClCompile Include="Blayne_GLFW_Backend.cpp" />
+    <ClCompile Include="Blayne_Kinect.cpp" />
     <ClCompile Include="Blayne_Pipeline.cpp" />
     <ClCompile Include="Blayne_Render_To_Texture.cpp" />
     <ClCompile Include="Blayne_Technique.cpp" />
@@ -182,6 +183,7 @@
     <ClInclude Include="Blayne_GLFW_Backend.h" />
     <ClInclude Include="Blayne_Globals.h" />
     <ClInclude Include="Blayne_Keys.h" />
+    <ClInclude Include="Blayne_Kinect.h" />
     <ClInclude Include="Blayne_Lights_Common.h" />
     <ClInclude Include="Blayne_Pipeline.h" />
     <ClInclude Include="Blayne_Technique.h" />
@@ -192,6 +194,15 @@
     <ClInclude Include="bMesh.h" />
     <ClInclude Include="bTexture.h" />
     <ClInclude Include="vboindexer.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Shaders\BasicTexture.fragmentshader" />
+    <None Include="Shaders\basic_lighting.fs" />
+    <None Include="Shaders\basic_lighting.vs" />
+    <None Include="Shaders\Passthrough.vertexshader" />
+    <None Include="Shaders\SimpleVertexShader.vs" />
+    <None Include="Shaders\TextureFragmentShader.fs" />
+    <None Include="Shaders\WobblyTexture.fragmentshader" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -37,7 +37,7 @@ void BlayneBackendTerminate()
 }
 
 
-bool BlayneBackendCreateWindow(Blayne_Types::uint Width, Blayne_Types::uint Height, bool isFullScreen, const char* pTitle)
+bool BlayneBackendCreateWindow(Blayne_Types::uint32 Width, Blayne_Types::uint32 Height, bool isFullScreen, const char* pTitle)
 {
 	TwWindowSize(Width, Height);
 
@@ -103,7 +103,7 @@ void BlayneBackendLeaveMainLoop()
 }
 
 
-void BlayneBackendSetMousePos(Blayne_Types::uint x, Blayne_Types::uint y)
+void BlayneBackendSetMousePos(Blayne_Types::uint32 x, Blayne_Types::uint32 y)
 {
 	switch (sBackendType) {
 	//case OGLDEV_BACKEND_TYPE_GLUT:

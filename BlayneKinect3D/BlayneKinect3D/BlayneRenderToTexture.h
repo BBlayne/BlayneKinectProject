@@ -12,9 +12,9 @@
 
 class RenderToTexture : public Technique {
 public:
-	bool InitFrameBuffer(int windowWidth, int windowHeight);
+	bool InitFrameBuffer(int windowWidth, int windowHeight, GLuint _tex);
 	bool InitShaders();
-	void Render();
+	void Render(GLuint _tex);
 	void RenderToFrameBuffer();
 	void RenderToScreen();
 private:

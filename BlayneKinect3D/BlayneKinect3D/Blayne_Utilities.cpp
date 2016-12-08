@@ -47,7 +47,7 @@ long long GetCurrentTimeMillis()
 #endif    
 }
 
-void OgldevError(const char* pFileName, Blayne_Types::uint line, const char* pError)
+void OgldevError(const char* pFileName, Blayne_Types::uint32 line, const char* pError)
 {
 #ifdef WIN32
 	char msg[1000];
@@ -58,7 +58,7 @@ void OgldevError(const char* pFileName, Blayne_Types::uint line, const char* pEr
 #endif    
 }
 
-void OgldevFileError(const char* pFileName, Blayne_Types::uint line, const char* pFileError)
+void OgldevFileError(const char* pFileName, Blayne_Types::uint32 line, const char* pFileError)
 {
 #ifdef WIN32
 	char msg[1000];

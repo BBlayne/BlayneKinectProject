@@ -21,7 +21,7 @@ static bool sWithDepth = false;
 static bool sWithStencil = false;
 static GLFWwindow* s_pWindow = NULL;
 
-static BLAYNE_KEY GLFWKeyToBLAYNEKey(Blayne_Types::uint Key)
+static BLAYNE_KEY GLFWKeyToBLAYNEKey(Blayne_Types::uint32 Key)
 {
 	if (Key >= GLFW_KEY_SPACE && Key <= GLFW_KEY_RIGHT_BRACKET) {
 		return (BLAYNE_KEY)Key;
@@ -87,7 +87,7 @@ static BLAYNE_KEY GLFWKeyToBLAYNEKey(Blayne_Types::uint Key)
 	return BLAYNE_KEY_UNDEFINED;
 }
 
-static BLAYNE_MOUSE GLFWMouseToBlayneMouse(Blayne_Types::uint Button)
+static BLAYNE_MOUSE GLFWMouseToBlayneMouse(Blayne_Types::uint32 Button)
 {
 	switch (Button) {
 	case GLFW_MOUSE_BUTTON_LEFT:
@@ -177,7 +177,7 @@ void GLFWBackendTerminate()
 }
 
 
-bool GLFWBackendCreateWindow(Blayne_Types::uint Width, Blayne_Types::uint Height, bool isFullScreen, const char* pTitle)
+bool GLFWBackendCreateWindow(Blayne_Types::uint32 Width, Blayne_Types::uint32 Height, bool isFullScreen, const char* pTitle)
 {
 	GLFWmonitor* pMonitor = isFullScreen ? glfwGetPrimaryMonitor() : NULL;
 
@@ -240,7 +240,7 @@ void GLFWBackendLeaveMainLoop()
 }
 
 
-void GLFWBackendSetMousePos(Blayne_Types::uint x, Blayne_Types::uint y)
+void GLFWBackendSetMousePos(Blayne_Types::uint32 x, Blayne_Types::uint32 y)
 {
 	glfwSetCursorPos(s_pWindow, (double)x, (double)y);
 }
