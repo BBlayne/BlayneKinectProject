@@ -51,5 +51,5 @@ private:
 	bool m_OnLeftEdge;
 	bool m_OnRightEdge;
 
-	glm::ivec2 m_mousePos;
+	glm::vec2 m_mousePos;
 };

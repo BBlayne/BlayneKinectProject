@@ -2,7 +2,7 @@
 
 const static float STEP_SCALE = 1.0f;
 const static float EDGE_STEP = 0.5f;
-const static int MARGIN = 10;
+const static int MARGIN = 50;
 
 Blayne_Camera::Blayne_Camera(int WindowWidth, int WindowHeight)
 {
@@ -127,14 +127,18 @@ bool Blayne_Camera::OnKeyboardHandler(BLAYNE_KEY Key)
 
 void Blayne_Camera::OnMouseHandler(int x, int y)
 {
-	const int DeltaX = x - m_mousePos.x;
-	const int DeltaY = y - m_mousePos.y;
+	int DeltaX = x - m_mousePos.x;
+	int DeltaY = y - m_mousePos.y;
+
+	//printf("BlayneCam: OnMouseHandler %d, %d: mx(%d), my(%d) \n", x, y, (int)m_mousePos.x, (int)m_mousePos.y);
 
 	m_mousePos.x = x;
 	m_mousePos.y = y;
 
+	//printf("BlayneCam: OnMouseHandler %d, %d\n", x, y, (int)DeltaX, (int)DeltaY);
+
 	m_AngleH += (float)DeltaX / 20.0f;
-	m_AngleV += (float)DeltaY / 20.0f;
+	m_AngleV += (float)DeltaY / 20.0f;	
 
 	if (DeltaX == 0) {
 		if (x <= MARGIN) {
@@ -194,7 +198,7 @@ void Blayne_Camera::OnRender()
 	}
 
 	if (ShouldUpdate) {
-		Update();
+		//Update();
 	}
 }
 

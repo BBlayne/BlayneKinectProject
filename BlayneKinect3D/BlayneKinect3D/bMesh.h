@@ -4,6 +4,9 @@
 #include "assimp\postprocess.h"
 #include "bTexture.h"
 #include "vboindexer.hpp"
+#include "Blayne_Utilities.h"
+#include "Blayne_Engine_Common.h"
+#include "Blayne_Types.h"
 
 #include <map>
 #include <vector>
@@ -16,34 +19,7 @@
 #include "glm\gtx\quaternion.hpp"
 #include "glm\gtx\vector_angle.hpp"
 
-#define POSITION_LOCATION    0
-#define TEX_COORD_LOCATION   1
-#define NORMAL_LOCATION      2
-#define BONE_ID_LOCATION     3
-#define BONE_WEIGHT_LOCATION 4
-#define ZERO_MEM(a) memset(a, 0, sizeof(a))
-#define SAFE_DELETE(p) if (p) { delete p; p = NULL; }
-#define INVALID_UNIFORM_LOCATION 0xffffffff
-#define ARRAY_SIZE_IN_ELEMENTS(a) (sizeof(a)/sizeof(a[0]))
-#define GLCheckError() (glGetError() == GL_NO_ERROR)
 
-//typedef unsigned int glm::uint;
-
-struct Vertex
-{
-	glm::vec3 m_pos;
-	glm::vec2 m_tex;
-	glm::vec3 m_normal;
-
-	Vertex() {}
-
-	Vertex(const glm::vec3& pos, const glm::vec2& tex, const glm::vec3& normal)
-	{
-		m_pos = pos;
-		m_tex = tex;
-		m_normal = normal;
-	}
-};
 
 class bMesh {
 public:
@@ -60,6 +36,8 @@ public:
 	// calculate angle of rotation and then update tree
 	void rotateBone(std::string boneName, glm::vec3 oldVec, glm::vec3 newVec);
 	void rotateBoneAtFrame(std::string boneName, glm::vec3 oldPos, glm::vec3 newPos, int frame, aiScene* _scene);
+	void rotateBoneAtFrame(std::string boneName, glm::quat _newRot, int frame, aiScene* _scene);
+	void rotateBonesAtFrame(std::vector<Blayne_Types::BoneNameJointOrientations> _boneNameJointOrientations, int frame, aiScene* _scene);
 	const aiScene* getScene() { return this->m_pScene; };
 	//
 	void BoneTransformSimplifiedNoInterpolation(std::vector<glm::mat4>& Transforms);
@@ -102,8 +80,6 @@ public:
 	glm::mat4 scale;
 	bool createPrism(double length);
 	void RenderPrism();
-	bool createLine(double length);
-	void RenderLine();
 	void bMesh::InsertKeyFrame(glm::uint frame, const aiNode* pNode, aiScene* _scene);
 	aiScene* customScene;
 	
@@ -115,8 +91,6 @@ private:
 	GLuint colorbuffer;
 	GLuint VertexArrayID;
 
-
-
 	struct BoneInfo
 	{
 		glm::mat4 BoneOffset;
@@ -127,7 +101,6 @@ private:
 			BoneOffset = glm::mat4(1.0);
 			FinalTransformation = glm::mat4(1.0);
 		}
-
 	};
 	
 	struct VertexBoneData
@@ -178,8 +151,6 @@ private:
 	bool InitMaterials(const aiScene* pScene, const std::string& Filename);
 	aiMatrix4x4 fromMatrix3x3(const aiMatrix3x3& AssimpMatrix);
 	void Clear();
-
-	#define INVALID_MATERIAL 0xFFFFFFFF
 
 	enum VB_TYPES {
 		INDEX_BUFFER,

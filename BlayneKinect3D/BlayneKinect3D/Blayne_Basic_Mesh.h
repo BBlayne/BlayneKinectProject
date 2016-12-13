@@ -18,24 +18,10 @@
 #include "glm\gtx\vector_angle.hpp"
 
 #include "Blayne_3D_Math.h"
-#include "Blayne_Utilities.h"
+#include "Blayne_Utilities.h" // Includes Blayne_Types.h
 #include "Blayne_Pipeline.h"
 
-struct Vertex
-{
-	glm::vec3 m_pos;
-	glm::vec2 m_tex;
-	glm::vec3 m_normal;
 
-	Vertex() {}
-
-	Vertex(const glm::vec3& pos, const glm::vec3& tex, const glm::vec3& normal)
-	{
-		m_pos = pos;
-		m_tex = tex;
-		m_normal = normal;
-	}
-};
 
 class BasicMesh
 {
@@ -63,17 +49,25 @@ private:
 	bool InitMaterials(const aiScene* pScene, const std::string& Filename);
 	void Clear();
 
-#define INVALID_MATERIAL 0xFFFFFFFF
+	enum VB_TYPES {
+		INDEX_BUFFER,
+		POS_VB,
+		NORMAL_VB,
+		TEXCOORD_VB,
+		WVP_MAT_VB,
+		WORLD_MAT_VB,
+		NUM_VBS
+	};
 
-#define INDEX_BUFFER 0    
-#define POS_VB       1
-#define NORMAL_VB    2
-#define TEXCOORD_VB  3    
-#define WVP_MAT_VB   4
-#define WORLD_MAT_VB 5
+//#define INDEX_BUFFER 0    
+//#define POS_VB       1
+//#define NORMAL_VB    2
+//#define TEXCOORD_VB  3    
+//#define WVP_MAT_VB   4
+//#define WORLD_MAT_VB 5
 
 	GLuint m_VAO;
-	GLuint m_Buffers[6];
+	GLuint m_Buffers[NUM_VBS];
 
 	struct BasicMeshEntry {
 		BasicMeshEntry()

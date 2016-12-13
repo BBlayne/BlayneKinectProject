@@ -1,4 +1,5 @@
 #include "Blayne_Kinect.h"
+
 BlayneKinect::BlayneKinect() {
 	screenWidth = 1024;
 	screenHeight = 768;
@@ -347,10 +348,72 @@ void BlayneKinect::Tick(float deltaTime)
 	DrawJoints();
 }
 
-void BlayneKinect::DrawJoints()
+void BlayneKinect::TickForJointsInfo(float deltaTime)
 {
 	//put update and drawing stuff here
 	HRESULT hr;
+	
+	// Depth data stuff...
+	// gettting the depthframe every tick aka the frame of the application
+	IDepthFrame* depthFrame;
+	hr = m_depthFrameReader->AcquireLatestFrame(&depthFrame);
+
+	// The kinect doesn't get us as many frames as the program is requesting,
+	// the program runs way faster than the kinect, so returns error codes during those
+	// initial frames.
+	// When asking data from kinect, first few frames will fill and THEN starts getting us
+	// data.
+	// Kinect 2 gets us a depth buffer that is 512 by 512 pixels.
+	// there is a way to get dimensions at runtime if different type of kienct?
+	if (FAILED(hr))
+	{
+		//printf("Failed to Acquire Latest Frame! \n");
+		return;
+	}
+
+	//printf("Copying data \n");
+
+	// actual size of buffer is 2x as big as the number of elements based in
+	// number of unsigned 16 bit integers
+	hr = depthFrame->CopyFrameDataToArray(m_depthWidth * m_depthHeight, m_depthBuffer);
+
+	if (FAILED(hr))
+	{
+		printf("Failed to copy data! \n");
+		return;
+	}
+
+	SafeRelease(depthFrame);
+
+	// Color stuff
+	IColorFrame* colorFrame;
+	hr = m_colorFrameReader->AcquireLatestFrame(&colorFrame);
+	if (FAILED(hr))
+	{
+		return;
+	}
+
+	// get frame desc for real world app and then dynamically allocate buffer...
+	// expects bytes
+	hr = colorFrame->CopyConvertedFrameDataToArray(1920 * 1080 * 4 ,
+		static_cast<BYTE*>(m_colorBuffer), ColorImageFormat_Bgra);
+	if (FAILED(hr))
+	{
+		return;
+	}
+
+	SafeRelease(colorFrame); // will read first frame, and then next frame "WOOPS YOU GOOFED!"
+
+							 // color space point is a vec2 (x,y), same size as depthbuffer
+	hr = m_coordinateMapper->MapDepthFrameToColorSpace(
+		m_depthWidth * m_depthHeight, m_depthBuffer,
+		m_depthWidth * m_depthHeight, m_colorSpacePoints);
+	if (FAILED(hr))
+	{
+		printf("Oh no! Failed map the depth frame to color space!\n");
+		return;
+	}
+	
 
 	if (m_bodyFrameReader != nullptr)
 	{
@@ -389,7 +452,7 @@ void BlayneKinect::DrawJoints()
 			return;
 		}
 
-		this->processBodies(BODY_COUNT, bodies);
+		this->processMaskedBodies(BODY_COUNT, bodies);
 		//After body processing is done, we're done with our bodies so release them.
 		for (unsigned int bodyIndex = 0; bodyIndex < _countof(bodies); bodyIndex++) {
 			SafeRelease(bodies[bodyIndex]);
@@ -401,16 +464,62 @@ void BlayneKinect::DrawJoints()
 	{
 		printf("Oh no! m_bodyFrameReader is null!\n");
 	}
+
 }
 
-void BlayneKinect::Shutdown()
+void BlayneKinect::processMaskedBodies(const unsigned int &bodyCount, IBody **bodies)
 {
-	//put cleaning up stuff here
-	SafeRelease(m_sensor);
-	SafeRelease(m_depthFrameReader);
-	delete[] m_depthBuffer;
-	delete[] m_colorBuffer;
-	SafeRelease(m_colorFrameReader);
+	bool ifIsBeingTracked = false;
+	for (unsigned int bodyIndex = 0; bodyIndex < bodyCount; bodyIndex++) {
+		IBody *body = bodies[bodyIndex];
+
+		//Get the tracking status for the body, if it's not tracked we'll skip it
+		BOOLEAN isTracked = false;
+		HRESULT hr = body->get_IsTracked(&isTracked);
+		if (FAILED(hr) || isTracked == false) {
+			continue;
+		}
+
+		//If we're here the body is tracked so lets get the joint properties for this skeleton
+		Joint joints[JointType_Count];
+		JointOrientation jointRotations[JointType_Count];
+		hr = body->GetJointOrientations(_countof(joints), jointRotations);
+		if (FAILED(hr)) {
+			printf("Failed to get joint orientations... \n");
+			return;
+		}
+
+
+		hr = body->GetJoints(_countof(joints), joints);
+		if (SUCCEEDED(hr)) {
+			ifIsBeingTracked = true;
+			// With the given joints find the rotations stored as quaternions
+			for (int i = 0; i < m_boneNameJointOrientations.size(); i++)
+			{
+				glm::quat myJointQuaternion = glm::quat(
+					jointRotations[m_boneNameJointOrientations[i].m_boneNameJoint.second].Orientation.w,
+					jointRotations[m_boneNameJointOrientations[i].m_boneNameJoint.second].Orientation.x,
+					jointRotations[m_boneNameJointOrientations[i].m_boneNameJoint.second].Orientation.y,
+					jointRotations[m_boneNameJointOrientations[i].m_boneNameJoint.second].Orientation.z);
+
+				// assign the found quaternion to our mapping.
+				m_boneNameJointOrientations[i].m_orientation = myJointQuaternion;
+				m_boneNameJointOrientations[i].m_jointPosition = 
+					glm::vec3(joints[m_boneNameJointOrientations[i].m_boneNameJoint.second].Position.X,
+						joints[m_boneNameJointOrientations[i].m_boneNameJoint.second].Position.Y,
+						joints[m_boneNameJointOrientations[i].m_boneNameJoint.second].Position.Z);
+			}
+		}
+	}
+
+	if (ifIsBeingTracked)
+	{
+		printf("Tracking bodies \n");
+	}
+	else
+	{
+		printf("No bodies are being tracked.... \n");
+	}
 }
 
 void BlayneKinect::processBodies(const unsigned int &bodyCount, IBody **bodies)
@@ -577,4 +686,134 @@ void BlayneKinect::DrawCircle(int cx, int cy, int radius,
 		this->PlotPixel(x, y, R, G, B, 254);
 
 	}
+}
+
+void BlayneKinect::setMask()
+{
+	// By default, lets test this with only a few joints.
+	// From our "Dave" model by Sebastian Lague we are only
+	// Interested in:
+	// Upper Arm.L - JointType_ElbowLeft
+	// Upper Arm.R - JointType_ElbowRight
+	// Lower Arm.L - JointType_ShoulderLeft
+	// Lower Arm.R - JointType_ShoulderRight
+	//m_jointMask.push_back(JointType_ElbowLeft);
+	//m_jointMask.push_back(JointType_ElbowRight);
+	//m_jointMask.push_back(JointType_ShoulderLeft);
+	//m_jointMask.push_back(JointType_ShoulderRight);
+
+
+	
+	//m_jointBoneMask.push_back(std::make_pair("Upper Arm.L", JointType_ShoulderLeft));
+	//m_jointBoneMask.push_back(std::make_pair("Upper Arm.R", JointType_ShoulderRight));
+	//m_jointBoneMask.push_back(std::make_pair("Lower Arm.L", JointType_ElbowLeft));
+	//m_jointBoneMask.push_back(std::make_pair("Lower Arm.R", JointType_ElbowRight));
+	// For four joints to convert to bones and get their orientations.
+	// Fuck it
+	Blayne_Types::BoneNameJointOrientations Head;
+	Head.m_boneNameJoint = std::make_pair("Head", JointType_Head);
+	Blayne_Types::BoneNameJointOrientations Neck;
+	Neck.m_boneNameJoint = std::make_pair("Head", JointType_Neck);
+	Blayne_Types::BoneNameJointOrientations UpperArmL;
+	UpperArmL.m_boneNameJoint = std::make_pair("Upper Arm.L", JointType_ShoulderLeft);
+	Blayne_Types::BoneNameJointOrientations UpperArmR;
+	UpperArmR.m_boneNameJoint = std::make_pair("Upper Arm.R", JointType_ShoulderRight);
+	Blayne_Types::BoneNameJointOrientations LowerArmL;
+	LowerArmL.m_boneNameJoint = std::make_pair("Lower Arm.L", JointType_ElbowLeft);
+	Blayne_Types::BoneNameJointOrientations LowerArmR;
+	LowerArmR.m_boneNameJoint = std::make_pair("Lower Arm.R", JointType_ElbowRight);
+	Blayne_Types::BoneNameJointOrientations WristLeft;
+	WristLeft.m_boneNameJoint = std::make_pair("Hand.L", JointType_WristLeft);
+	Blayne_Types::BoneNameJointOrientations WristRight;
+	WristRight.m_boneNameJoint = std::make_pair("Hand.R", JointType_WristRight);
+	Blayne_Types::BoneNameJointOrientations SpineShoulder;
+	SpineShoulder.m_boneNameJoint = std::make_pair("Chest", JointType_SpineShoulder);
+
+	Blayne_Types::BoneNameJointOrientations SpineBase;
+	SpineBase.m_boneNameJoint = std::make_pair("Torso", JointType_SpineBase);
+	Blayne_Types::BoneNameJointOrientations SpineMid;
+	SpineMid.m_boneNameJoint = std::make_pair("null", JointType_SpineMid);
+
+	m_boneNameJointOrientations.push_back(SpineBase);
+	m_boneNameJointOrientations.push_back(SpineMid);
+	m_boneNameJointOrientations.push_back(SpineShoulder);
+	// in order of heirarchy
+	m_boneNameJointOrientations.push_back(UpperArmL);
+	m_boneNameJointOrientations.push_back(LowerArmL);
+	m_boneNameJointOrientations.push_back(WristLeft);
+
+	m_boneNameJointOrientations.push_back(UpperArmR);	
+	m_boneNameJointOrientations.push_back(LowerArmR);
+	m_boneNameJointOrientations.push_back(WristRight);
+
+	m_boneNameJointOrientations.push_back(Head);
+	m_boneNameJointOrientations.push_back(Neck);	
+	
+
+}
+
+void BlayneKinect::DrawJoints()
+{
+	//put update and drawing stuff here
+	HRESULT hr;
+
+	if (m_bodyFrameReader != nullptr)
+	{
+		// Body stuff
+		IBodyFrame *bodyFrame = nullptr;
+		hr = m_bodyFrameReader->AcquireLatestFrame(&bodyFrame);
+		if (FAILED(hr))
+		{
+			printf("Oh no! Failed to get latest body frame!\n");
+			if (m_sensor)
+			{
+				BOOLEAN isSensorAvailable = false;
+				hr = m_sensor->get_IsAvailable(&isSensorAvailable);
+				if (SUCCEEDED(hr) && !isSensorAvailable)
+				{
+					printf("Sensor not available!!\n");
+					return;
+				}
+				else
+				{
+					printf("Sensor is available!!\n");
+					return;
+				}
+			}
+			else {
+				std::cerr << "Trouble reading the body frame.\n";
+				return;
+			}
+		}
+
+		IBody *bodies[BODY_COUNT] = { 0 };
+		hr = bodyFrame->GetAndRefreshBodyData(_countof(bodies), bodies);
+		if (FAILED(hr))
+		{
+			printf("Oh no! Failed to refresh body data!\n");
+			return;
+		}
+
+		this->processBodies(BODY_COUNT, bodies);
+		//After body processing is done, we're done with our bodies so release them.
+		for (unsigned int bodyIndex = 0; bodyIndex < _countof(bodies); bodyIndex++) {
+			SafeRelease(bodies[bodyIndex]);
+		}
+
+		SafeRelease(bodyFrame);
+	}
+	else
+	{
+		printf("Oh no! m_bodyFrameReader is null!\n");
+	}
+}
+
+void BlayneKinect::Shutdown()
+{
+	//put cleaning up stuff here
+	SafeRelease(m_sensor);
+	SafeRelease(m_depthFrameReader);
+	delete[] m_depthBuffer;
+	delete[] m_colorBuffer;
+	SafeRelease(m_colorFrameReader);
 }

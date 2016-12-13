@@ -150,6 +150,7 @@
   <ItemGroup>
     <ClCompile Include="..\Dependencies\include\ogl\shader.cpp" />
     <ClCompile Include="BlayneApp.cpp" />
+    <ClCompile Include="BlayneSkinningTechnique.cpp" />
     <ClCompile Include="Blayne_ATB.cpp" />
     <ClCompile Include="BlayneKinect3D.cpp" />
     <ClCompile Include="Blayne_3D_Math.cpp" />
@@ -170,6 +171,7 @@
   <ItemGroup>
     <ClInclude Include="..\Dependencies\include\ogl\shader.hpp" />
     <ClInclude Include="BlayneRenderToTexture.h" />
+    <ClInclude Include="BlayneSkinningTechnique.h" />
     <ClInclude Include="Blayne_Basic_Lighting.h" />
     <ClInclude Include="BlayneReplacementTime.h" />
     <ClInclude Include="BlayneUniStd.h" />

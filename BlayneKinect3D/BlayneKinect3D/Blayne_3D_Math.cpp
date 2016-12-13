@@ -1,11 +1,26 @@
 #include "Blayne_3D_Math.h"
+#include<glm/gtc/quaternion.hpp>
+#include<glm\gtx\quaternion.hpp>
+#include<glm/common.hpp>
+#include <glm\gtc\type_ptr.hpp>
 
 glm::mat4 Blayne_3D_Math::InitScaleTransform(float ScaleX, float ScaleY, float ScaleZ) {
 	return glm::scale(glm::vec3(ScaleX, ScaleY, ScaleZ));
 }
 
 glm::mat4 Blayne_3D_Math::InitRotateTransform(float RotateX, float RotateY, float RotateZ) {
-	return glm::eulerAngleXYZ(RotateX, RotateY, RotateZ);
+	glm::quat myQuat;
+	glm::vec3 EulerAngles = glm::vec3(RotateX, RotateY, RotateZ);
+	myQuat = glm::quat(EulerAngles);
+	//return glm::toMat4(myQuat);
+
+	return glm::rotate(glm::mat4(1.0), glm::radians(RotateX), glm::vec3(1, 0, 0)) *
+		glm::rotate(glm::mat4(1.0), glm::radians(RotateY), glm::vec3(0, 1, 0)) *
+		glm::rotate(glm::mat4(1.0), glm::radians(RotateZ), glm::vec3(0, 0, 1));
+
+	//return glm::eulerAngleXYZ(RotateX, RotateY, RotateZ);
+	//return glm::toMat4(glm::quat(1, RotateX, RotateY, RotateZ));
+	
 }
 
 glm::mat4 Blayne_3D_Math::InitRotateTransform(const glm::quat& _quat) {
@@ -62,6 +77,17 @@ void Blayne_3D_Math::CopyGlMatToAiMat(const glm::mat4 from, aiMatrix4x4 &to)
 	to[1][0] = from[0][1]; to[1][1] = from[1][1]; to[1][2] = from[2][1]; to[1][3] = from[3][1];
 	to[2][0] = from[0][2]; to[2][1] = from[1][2]; to[2][2] = from[2][2]; to[2][3] = from[3][2];
 	to[3][0] = from[0][3]; to[3][1] = from[1][3]; to[3][2] = from[2][3]; to[3][3] = from[3][3];
+}
+
+glm::quat Blayne_3D_Math::aiQuatToGlMQuat(aiQuaternion _quat)
+{
+	glm::quat temp;
+	temp.w = _quat.w;
+	temp.x = _quat.x;
+	temp.y = _quat.y;
+	temp.z = _quat.z;
+
+	return temp;
 }
 
 void Blayne_3D_Math::PrintMatrix(glm::mat4 matrix)

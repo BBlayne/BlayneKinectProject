@@ -72,6 +72,9 @@
     <ClCompile Include="Blayne_Kinect.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="BlayneSkinningTechnique.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Blayne_Utilities.h">
@@ -150,6 +153,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Blayne_Kinect.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BlayneSkinningTechnique.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

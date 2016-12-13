@@ -1,91 +1,28 @@
+#include "BlayneSkinningTechnique.h"
 #include <limits.h>
 #include <string.h>
-#include "Blayne_Basic_Lighting.h"
 #include "Blayne_Utilities.h"
 #include "Blayne_ATB.h"
 #include <glm\gtc\type_ptr.hpp>
 
+using namespace std;
 
-void BaseLight::AddToATB(TwBar *bar)
-{
-	std::string s = Name + ".Color";
-	TwAddVarRW(bar, s.c_str(), TW_TYPE_COLOR3F, &Color, NULL);
-	s = Name + ".Ambient Intensity";
-	TwAddVarRW(bar, s.c_str(), TW_TYPE_FLOAT, &AmbientIntensity, "min=0.0 max=1.0 step=0.005");
-	s = Name + ".Diffuse Intensity";
-	TwAddVarRW(bar, s.c_str(), TW_TYPE_FLOAT, &DiffuseIntensity, "min=0.0 max=1.0 step=0.005");
-}
-
-
-void DirectionalLight::AddToATB(TwBar *bar)
-{
-	BaseLight::AddToATB(bar);
-	std::string s = Name + ".Direction";
-	TwAddVarRW(bar, s.c_str(), TW_TYPE_DIR3F, &Direction, "axisz=-z");
-}
-
-
-void PointLight::AddToATB(TwBar *bar)
-{
-	BaseLight::AddToATB(bar);
-	std::string s = Name + ".Position";
-	TwAddVarRW(bar, s.c_str(), TW_TYPE_BLAYNE_VECTOR3F, &Position, "axisz=-z");
-	s = Name + ".Attenuation";
-	TwAddVarRW(bar, s.c_str(), TW_TYPE_BLAYNE_ATTENUATION, &Attenuation, "");
-}
-
-
-void SpotLight::AddToATB(TwBar *bar)
-{
-	PointLight::AddToATB(bar);
-	std::string s = Name + ".Direction";
-	TwAddVarRW(bar, s.c_str(), TW_TYPE_DIR3F, &Direction, "axisz=-z");
-	s = Name + ".Cutoff";
-	TwAddVarRW(bar, s.c_str(), TW_TYPE_FLOAT, &Cutoff, "");
-}
-
-
-BlayneBasicLightingTechnique::BlayneBasicLightingTechnique()
+SkinningTechnique::SkinningTechnique()
 {
 }
 
-bool BlayneBasicLightingTechnique::Init2()
+bool SkinningTechnique::Init()
 {
 	if (!Technique::Init()) {
-		return false;
-	}
-	if (!AddShader(GL_VERTEX_SHADER, "Shaders/SimpleVertexShader.vs")) {
-		return false;
-	}
-
-
-	if (!AddShader(GL_FRAGMENT_SHADER, "Shaders/TextureFragmentShader.fs")) {
+		printf("Failed to Init SkinningTechnique\n");
 		return false;
 	}
 
-	if (!Finalize()) {
+	if (!AddShader(GL_VERTEX_SHADER, "Shaders/skinning.vs")) {
 		return false;
 	}
 
-	m_WVPLocation = GetUniformLocation("MVP");
-	m_WorldMatrixLocation = GetUniformLocation("MVP");
-	m_colorTextureLocation = GetUniformLocation("myTextureSampler");
-
-	return true;
-}
-
-bool BlayneBasicLightingTechnique::Init()
-{
-	if (!Technique::Init()) {
-		return false;
-	}
-
-	if (!AddShader(GL_VERTEX_SHADER, "Shaders/basic_lighting.vs")) {
-		return false;
-	}
-
-
-	if (!AddShader(GL_FRAGMENT_SHADER, "Shaders/basic_lighting.fs")) {
+	if (!AddShader(GL_FRAGMENT_SHADER, "Shaders/skinning.fs")) {
 		return false;
 	}
 
@@ -198,31 +135,38 @@ bool BlayneBasicLightingTechnique::Init()
 			return false;
 		}
 	}
-	
+
+	for (unsigned int i = 0; i < ARRAY_SIZE_IN_ELEMENTS(m_boneLocation); i++) {
+		char Name[128];
+		memset(Name, 0, sizeof(Name));
+		SNPRINTF(Name, sizeof(Name), "gBones[%d]", i);
+		m_boneLocation[i] = GetUniformLocation(Name);
+	}
+
 	return true;
 }
 
-void BlayneBasicLightingTechnique::SetWVP(const glm::mat4& WVP)
+void SkinningTechnique::SetWVP(const glm::mat4& WVP)
 {
 	//glUniformMatrix4fv(m_WVPLocation, 1, GL_TRUE, (const GLfloat*)WVP.m);
 	glUniformMatrix4fv(m_WVPLocation, 1, GL_FALSE, &WVP[0][0]);
 }
 
 
-void BlayneBasicLightingTechnique::SetWorldMatrix(const glm::mat4& WorldInverse)
+void SkinningTechnique::SetWorldMatrix(const glm::mat4& WorldInverse)
 {
 	//glUniformMatrix4fv(m_WorldMatrixLocation, 1, GL_TRUE, (const GLfloat*)WorldInverse.m);
 	glUniformMatrix4fv(m_WorldMatrixLocation, 1, GL_FALSE, &WorldInverse[0][0]);
 }
 
 
-void BlayneBasicLightingTechnique::SetColorTextureUnit(unsigned int TextureUnit)
+void SkinningTechnique::SetColorTextureUnit(unsigned int TextureUnit)
 {
 	glUniform1i(m_colorTextureLocation, TextureUnit);
 }
 
 
-void BlayneBasicLightingTechnique::SetDirectionalLight(const DirectionalLight& Light)
+void SkinningTechnique::SetDirectionalLight(const DirectionalLight& Light)
 {
 	glUniform3f(m_dirLightLocation.Color, Light.Color.x, Light.Color.y, Light.Color.z);
 	glUniform1f(m_dirLightLocation.AmbientIntensity, Light.AmbientIntensity);
@@ -233,25 +177,25 @@ void BlayneBasicLightingTechnique::SetDirectionalLight(const DirectionalLight& L
 }
 
 
-void BlayneBasicLightingTechnique::SetEyeWorldPos(const glm::vec3& EyeWorldPos)
+void SkinningTechnique::SetEyeWorldPos(const glm::vec3& EyeWorldPos)
 {
 	glUniform3f(m_eyeWorldPosLocation, EyeWorldPos.x, EyeWorldPos.y, EyeWorldPos.z);
 }
 
 
-void BlayneBasicLightingTechnique::SetMatSpecularIntensity(float Intensity)
+void SkinningTechnique::SetMatSpecularIntensity(float Intensity)
 {
 	glUniform1f(m_matSpecularIntensityLocation, Intensity);
 }
 
 
-void BlayneBasicLightingTechnique::SetMatSpecularPower(float Power)
+void SkinningTechnique::SetMatSpecularPower(float Power)
 {
 	glUniform1f(m_matSpecularPowerLocation, Power);
 }
 
 
-void BlayneBasicLightingTechnique::SetPointLights(unsigned int NumLights, const PointLight* pLights)
+void SkinningTechnique::SetPointLights(unsigned int NumLights, const PointLight* pLights)
 {
 	glUniform1i(m_numPointLightsLocation, NumLights);
 
@@ -266,7 +210,7 @@ void BlayneBasicLightingTechnique::SetPointLights(unsigned int NumLights, const 
 	}
 }
 
-void BlayneBasicLightingTechnique::SetSpotLights(unsigned int NumLights, const SpotLight* pLights)
+void SkinningTechnique::SetSpotLights(unsigned int NumLights, const SpotLight* pLights)
 {
 	glUniform1i(m_numSpotLightsLocation, NumLights);
 
@@ -284,4 +228,11 @@ void BlayneBasicLightingTechnique::SetSpotLights(unsigned int NumLights, const S
 		glUniform1f(m_spotLightsLocation[i].Atten.Linear, pLights[i].Attenuation.Linear);
 		glUniform1f(m_spotLightsLocation[i].Atten.Exp, pLights[i].Attenuation.Exp);
 	}
+}
+
+void SkinningTechnique::SetBoneTransform(Blayne_Types::uint32 index, const glm::mat4& transform)
+{
+	assert(Index < MAX_BONES);
+	//Transform.Print();
+	glUniformMatrix4fv(m_boneLocation[index], 1, GL_FALSE, &transform[0][0]);
 }

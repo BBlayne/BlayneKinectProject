@@ -1,4 +1,5 @@
 #include "bMesh.h"
+#include "Blayne_3D_Math.h"
 
 bMesh::bMesh() : ID(currID++)
 {
@@ -21,16 +22,6 @@ bMesh::bMesh(double length) : ID(currID++)
 bMesh::~bMesh()
 {
 	Clear();
-}
-
-void bMesh::RenderLine()
-{
-
-}
-
-bool bMesh::createLine(double length)
-{
-	return true;
 }
 
 void bMesh::RenderPrism()
@@ -411,6 +402,23 @@ bool bMesh::InitFromScene(const aiScene* pScene, const std::string& Filename)
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_Buffers[INDEX_BUFFER]);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Indices[0]) * Indices.size(), &Indices[0], GL_STATIC_DRAW);
+
+	GLenum err;
+	err = glGetError();
+	if (err != GL_NO_ERROR)
+	{
+		cerr << "OpenGL error: " << err << endl;
+		string error;
+		switch (err) {
+		case GL_INVALID_OPERATION:      error = "INVALID_OPERATION";      break;
+		case GL_INVALID_ENUM:           error = "INVALID_ENUM";           break;
+		case GL_INVALID_VALUE:          error = "INVALID_VALUE";          break;
+		case GL_OUT_OF_MEMORY:          error = "OUT_OF_MEMORY";          break;
+		case GL_INVALID_FRAMEBUFFER_OPERATION:  error = "INVALID_FRAMEBUFFER_OPERATION";  break;
+		}
+
+		cerr << "GL_" << error.c_str() << " - " << endl;
+	}
 
 	return GLCheckError();
 }
@@ -867,7 +875,7 @@ void bMesh::createSkeleton(const aiMesh* pMesh)
 		{
 			continue;
 		}
-		
+
 		// Temporary Head Position
 		//_bone->position = FindBonePosition(BoneName);
 		glm::vec3 head = FindBonePosition(BoneName);
@@ -879,7 +887,7 @@ void bMesh::createSkeleton(const aiMesh* pMesh)
 		float length = glm::distance(tail, head);
 		printf("Length of %s to %s is %.3f\n", BoneName, TailBoneName, length);
 		bMesh* _bone = new bMesh(length / 2);
-		
+
 
 		_bone->position = FindMidPoint(head, tail);
 		glm::mat4 mMatrix = glm::mat4(1.0);
@@ -897,7 +905,96 @@ void bMesh::createSkeleton(const aiMesh* pMesh)
 		skeleton_mesh skeleton_pair(_bone, BoneName);
 		skeleton.push_back(skeleton_pair);
 	}
+
+}
+
+void bMesh::rotateBonesAtFrame(std::vector<Blayne_Types::BoneNameJointOrientations> _boneNameJointOrientations, int frame, aiScene* _scene)
+{
+
+	std::string boneSpineBase = _boneNameJointOrientations[0].m_boneNameJoint.first;
+	glm::quat _quatSpineBase = _boneNameJointOrientations[0].m_orientation;	
+	const aiNodeAnim* _nodeSpineBase = FindNodeAnim(_scene->mAnimations[0], boneSpineBase);
+	std::string boneSpineMid = _boneNameJointOrientations[1].m_boneNameJoint.first;
+	glm::quat _quatSpineMid = _boneNameJointOrientations[1].m_orientation;
+	const aiNodeAnim* _nodeSpineMid = FindNodeAnim(_scene->mAnimations[0], boneSpineMid);
+	std::string boneSpineShoulder = _boneNameJointOrientations[2].m_boneNameJoint.first;
+	glm::quat _quatSpineShoulder = _boneNameJointOrientations[2].m_orientation;
+	const aiNodeAnim* _nodeSpineShoulder = FindNodeAnim(_scene->mAnimations[0], boneSpineShoulder);
+	std::string boneShoulderLeft = _boneNameJointOrientations[3].m_boneNameJoint.first;
+	glm::quat _quatShoulderLeft = _boneNameJointOrientations[3].m_orientation;
+	glm::vec3 _ShouldLeftPos = _boneNameJointOrientations[3].m_jointPosition;
+	const aiNodeAnim* _nodeShoulderLeft = FindNodeAnim(_scene->mAnimations[0], boneShoulderLeft);
+	std::string boneElbowLeft = _boneNameJointOrientations[4].m_boneNameJoint.first;
+	glm::quat _quatElbowLeft = _boneNameJointOrientations[4].m_orientation;
+	const aiNodeAnim* _nodeElbowLeft = FindNodeAnim(_scene->mAnimations[0], boneElbowLeft);
+	std::string boneWristLeft = _boneNameJointOrientations[5].m_boneNameJoint.first;
+	glm::quat _quatWristLeft = _boneNameJointOrientations[5].m_orientation;
+	const aiNodeAnim* _nodeWristLeft = FindNodeAnim(_scene->mAnimations[0], boneWristLeft);
+
+	glm::mat4 LocalNodeTransform;
+	glm::mat4 GlobalNodeTransform;
+	glm::mat4 AnimTransform;
+	glm::quat _rotation;
+
+
+	glm::vec3 LeftShoulderPos = _boneNameJointOrientations[0].m_jointPosition;
+	glm::vec3 LeftElbowPos = _boneNameJointOrientations[1].m_jointPosition;
+
+	FindBone("Chest", this->getScene()->mRootNode, glm::mat4(1.0), GlobalNodeTransform);
+	glm::quat globalRot;
+	glm::decompose(GlobalNodeTransform, glm::vec3(1.0), globalRot, glm::vec3(1.0), glm::vec3(1.0), glm::vec4(1.0));
+	_rotation = glm::inverse(glm::conjugate(globalRot)) * _quatElbowLeft;
+
+	//boneSpineShoulder
+	globalRot.w = _nodeSpineShoulder->mRotationKeys[frame].mValue.w;
+	globalRot.x = _nodeSpineShoulder->mRotationKeys[frame].mValue.x;
+	globalRot.y = _nodeSpineShoulder->mRotationKeys[frame].mValue.y;
+	globalRot.z = _nodeSpineShoulder->mRotationKeys[frame].mValue.z;
+
+	_rotation = glm::inverse(globalRot) * _quatElbowLeft;
+
+	_nodeShoulderLeft->mRotationKeys[frame].mValue = aiQuaternion(_rotation.w, _rotation.x, _rotation.y, _rotation.z);
+
+	FindBone("Upper Arm.L", this->getScene()->mRootNode, glm::mat4(1.0), GlobalNodeTransform);
+	//GlobalNodeTransform = GlobalNodeTransform * glm::toMat4(_rotation);
+	glm::decompose(GlobalNodeTransform, glm::vec3(1.0), globalRot, glm::vec3(1.0), glm::vec3(1.0), glm::vec4(1.0));
+	//CopyaiMat(&_scene->mRootNode->FindNode(std::string("Upper Arm.L").c_str())->mTransformation, LocalNodeTransform);
+	//glm::decompose(LocalNodeTransform, glm::vec3(1.0), globalRot, glm::vec3(1.0), glm::vec3(1.0), glm::vec4(1.0));
 	
+	
+	glm::quat elbowRot = _rotation * glm::inverse(glm::conjugate(globalRot)) * _quatWristLeft;
+	_nodeElbowLeft->mRotationKeys[frame].mValue = aiQuaternion(elbowRot.w, elbowRot.x, elbowRot.y, elbowRot.z);
+
+
+}
+
+void bMesh::rotateBoneAtFrame(std::string boneName, glm::quat _newRot, int frame, aiScene* _scene)
+{
+	glm::mat4 LocalNodeTransform;
+	glm::mat4 GlobalNodeTransform;
+	glm::mat4 AnimTransform;
+	const aiNodeAnim* _node = FindNodeAnim(_scene->mAnimations[0], boneName);
+	//CopyaiMat(&fromMatrix3x3(_node->mRotationKeys[frame].mValue.GetMatrix()), AnimTransform);
+	CopyaiMat(&_scene->mRootNode->FindNode(boneName.c_str())->mTransformation, LocalNodeTransform);
+
+	FindBone(boneName, _scene->mRootNode, glm::mat4(1.0), GlobalNodeTransform);
+	glm::quat _rotation;
+	glm::quat global_rot;
+	global_rot = 
+		(glm::angleAxis(glm::radians(90.0f), glm::vec3(0, 1, 0)) *
+		glm::angleAxis(glm::radians(-90.0f), glm::vec3(0, 0, 1)));
+
+	
+
+	glm::quat myQuat;
+	glm::vec3 EulerAngles = glm::vec3((0.0f), (0.0f), (90.0f));
+	myQuat = glm::quat(EulerAngles);
+
+	
+
+	_rotation = _newRot;
+	//_rotation = _rotation * _newRot;
+	_node->mRotationKeys[frame].mValue = aiQuaternion(_rotation.w, _rotation.x, _rotation.y, _rotation.z);
 }
 
 void bMesh::rotateBoneAtFrame(std::string boneName, glm::vec3 oldPos, glm::vec3 newPos, int frame, aiScene* _scene)
@@ -949,7 +1046,10 @@ void bMesh::rotateBoneAtFrame(std::string boneName, glm::vec3 oldPos, glm::vec3 
 
 	AnimTransform = AnimTransform * newRotation;
 
+
+
 	glm::quat _rotation = glm::toQuat(AnimTransform);
+	//_rotation = glm::quat(0, 0, 0, 0);
 	_node->mRotationKeys[frame].mValue = aiQuaternion(_rotation.w, _rotation.x, _rotation.y, _rotation.z);
 }
 

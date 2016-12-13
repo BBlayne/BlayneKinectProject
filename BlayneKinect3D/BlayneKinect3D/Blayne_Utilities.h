@@ -43,6 +43,7 @@ float fmax(float a, float b);
 
 #define INVALID_UNIFORM_LOCATION 0xffffffff
 #define INVALID_OGL_VALUE 0xffffffff
+#define INVALID_MATERIAL 0xFFFFFFFF
 
 #define SAFE_DELETE(p) if (p) { delete p; p = NULL; }
 

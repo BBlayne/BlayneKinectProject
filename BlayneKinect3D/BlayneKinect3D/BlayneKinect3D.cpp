@@ -48,8 +48,10 @@ using namespace glm;
 #include "Blayne_3D_Math.h"
 #include "Blayne_Pipeline.h"
 #include "Blayne_Basic_Mesh.h"
+#include "bMesh.h"
 #include "BlayneRenderToTexture.h"
 #include "Blayne_Kinect.h"
+#include "BlayneSkinningTechnique.h"
 
 
 int gGLMajorVersion = 0;
@@ -114,10 +116,14 @@ class BlayneKinect3D : public IBlayneCallbacks, public BlayneApp
 private:
 	std::vector<BlayneBasicLightingTechnique> m_LightingTechs;
 	BlayneBasicLightingTechnique m_LightingTech;
+	// Shader/Lighting info for a skinned mesh
+	SkinningTechnique* m_SkinningTech;
+	// m_LightingTech;
 	Blayne_Camera* m_pGameCamera;
 	DirectionalLight m_directionalLight;
 	// Basic Meshes Array?
 	std::vector<BasicMesh*> m_BasicMeshes;
+	std::vector<bMesh*> m_SkinnedMeshes; // Also maybe a skeleton?
 	PersProjInfo m_persProjInfo;
 	OrthoProjInfo m_orthoProjInfo;
 	std::vector<Blayne_Pipeline> m_pipelines;
@@ -129,6 +135,10 @@ private:
 	TwBar *bar;
 	RenderToTexture m_RenderToTexturer;
 	BlayneKinect* m_KinectObj;
+	float deltaTime;
+	//bool InitBasicMesh(std::string _path, glm::vec3 pos, glm::vec3 rot, glm::vec3 scale);
+	//void RenderBasicMesh(int _whichPipe, int _whichMesh);
+	glm::vec3 m_objRotationEuler = glm::vec3(0, 0, 0);
 public:
 	BlayneKinect3D() { 
 		m_pGameCamera = NULL;
@@ -160,8 +170,7 @@ public:
 
 		m_pipeline.SetPerspectiveProj(m_persProjInfo);
 		m_pipeline.SetOrthographicProj(m_orthoProjInfo);
-
-
+		m_pipelines.push_back(m_pipeline);
 
 		// Set Current Mesh?
 		// What's this do?
@@ -183,8 +192,8 @@ public:
 			return false;
 		}
 
-		glm::vec3 Pos(0.0f, 0.0f, -2.0f);
-		glm::vec3 LookAt(0.0f, 0.0f, 1.0f);
+		glm::vec3 Pos(0.0f, 2.0f, -12.5f);
+		glm::vec3 LookAt(0.0f, 2.0f, 10.0f);
 		glm::vec3 Up(0.0f, 1.0f, 0.0f);
 
 		//initImage();
@@ -206,33 +215,51 @@ public:
 		m_LightingTech.SetMatSpecularIntensity(0.0f);
 		m_LightingTech.SetMatSpecularPower(0);
 
-		// Load Meshes Here.
-		BasicMesh* mesh = new BasicMesh();
-		if (!mesh->LoadMesh("StandardCube.fbx")) {
-			printf(" Did not load mesh?\n");
+		m_SkinningTech = new SkinningTechnique();
+		if (!m_SkinningTech->Init())
+		{
+			printf("Error initializing the lighting technique (SkinningTechnique) \n");
 			return false;
 		}
-		mesh->GetOrientation().m_translation = glm::vec3(0.0f, 0.0f, 5.0f);
-		mesh->GetOrientation().m_rotation = glm::vec3(0.0f, 0.0f, 0.0f);
-		m_BasicMeshes.push_back(mesh);
-		//m_pipelines.push_back(m_pipeline);
-		BasicMesh* mesh2 = new BasicMesh();
-		if (!mesh2->LoadMesh("BasicCheb.fbx")) {
-			printf(" Did not load mesh?\n");
-			return false;
-		}
-		mesh2->GetOrientation().m_translation = glm::vec3(2.0f, 0.0f, 5.0f);
-		mesh2->GetOrientation().m_rotation = glm::vec3(0.0f, 0.0f, 0.0f);
-		m_BasicMeshes.push_back(mesh2);
-		//m_pipelines.push_back(m_pipeline);
-		// Set Orientation of one of them?
+		m_SkinningTech->Enable();
+		printf("m_SkinningTech enabled\n");
+		m_SkinningTech->SetColorTextureUnit(COLOR_TEXTURE_UNIT_INDEX);
+		m_SkinningTech->SetDirectionalLight(m_directionalLight);
+		m_SkinningTech->SetMatSpecularIntensity(0.0f);
+		m_SkinningTech->SetMatSpecularPower(0);
 
-		Blayne_Pipeline mPipe2 = m_pipeline;
-		m_pipelines.push_back(mPipe2);
+		// Load Meshes & Orientations
+		
+		if (!this->InitBasicMesh("StandardCube.fbx",
+			glm::vec3(0.0f, -0.1f, 0.0f),
+			glm::vec3(0.0f, 0.0f, 0.0f),
+			glm::vec3(10.0f, 0.1f, 10.0f)))
+			return false;
+			
+		// Dave.fbx, BasicCheb.fbx
+		if (!this->InitBasicMesh("BasicCheb.fbx",
+			glm::vec3(0.0f, 0.0f, 0.0f),
+			m_objRotationEuler,
+			glm::vec3(1.0f, 1.0f, 1.0f)))
+			return false;
+
+		if (!this->InitSkinnedMesh("Dave.fbx",
+			glm::vec3(0.0f, 0.0f, 0.0f),
+			m_objRotationEuler,
+			glm::vec3(1.0f, 1.0f, 1.0f)))
+		{
+			printf("Error loading Dave\n");
+			return false;
+		}
+			
+
 		// TwBar stuff.
 		bar = TwNewBar("Blayne's Kinect v2.0 3D App.");
 
 		m_pGameCamera->AddToATB(bar);
+		TwAddSeparator(bar, "", NULL);
+		TwAddVarRW(bar, "ObjRotation", TW_TYPE_BLAYNE_VECTOR3F, (void*)&m_objRotationEuler, NULL);
+		TwAddSeparator(bar, "", NULL);
 		m_directionalLight.AddToATB(bar);
 		float refresh = 0.1f;
 		TwSetParam(bar, NULL, "refresh", TW_PARAM_FLOAT, 1, &refresh);
@@ -260,13 +287,16 @@ public:
 			return false;
 		}
 
+		/*
 		if (!m_KinectObj->InitShaders())
 		{
 			printf(" Did not init kinect shaders?\n");
 			return false;
 		}
+		*/
 
-		m_KinectObj->InitRenderTarget();
+		//m_KinectObj->InitRenderTarget();
+		m_KinectObj->setMask();
 
 		lastTime = Clock::now();
 
@@ -275,6 +305,8 @@ public:
 
 	virtual void RenderSceneCB()
 	{
+		// Kinect
+		m_KinectObj->TickForJointsInfo(deltaTime);
 		//m_RenderToTexturer.RenderToFrameBuffer();
 		// Handle camera being rotated via user edging
 		// the mouse along the edge of the screen.
@@ -291,23 +323,17 @@ public:
 		m_LightingTech.SetDirectionalLight(m_directionalLight);
 
 		// Pass our camera object to our pipeline object.
-		m_pipeline.SetCamera(*m_pGameCamera);
 		m_pipelines[0].SetCamera(*m_pGameCamera);
 
-		// Perhaps set object orientation here.
-		// m_mesh[m_currentMesh].GetOrientation().m_rotation = g_Rotation.ToDegrees();
-		m_pipeline.Orient(m_BasicMeshes[0]->GetOrientation());
-		m_LightingTech.SetWVP(m_pipeline.GetWVPTrans());
-		m_LightingTech.SetWorldMatrix(m_pipeline.GetWorldTrans());
-		m_BasicMeshes[0]->Render();
-		//m_pipelines
-		m_pipelines[0].Orient(m_BasicMeshes[1]->GetOrientation());
-		m_LightingTech.SetWVP(m_pipelines[0].GetWVPTrans());
-		m_LightingTech.SetWorldMatrix(m_pipelines[0].GetWorldTrans());
-		m_BasicMeshes[1]->Render();
+
+		// Refresh orientations & call rendering
+		this->RenderBasicMesh(0, 0);
+		//this->RenderBasicMesh(0, 1);
+		this->RenderSkinnedMesh(0, 0);
+
 		// Update MVP.
-		for (int i = 0; i < m_BasicMeshes.size(); i++)
-		{
+		//for (int i = 0; i < m_BasicMeshes.size(); i++)
+		//{
 
 			//m_pipeline.Orient(m_BasicMeshes[0]->GetOrientation());
 			//m_LightingTech.SetWVP(m_pipeline.GetWVPTrans());
@@ -316,7 +342,7 @@ public:
 			// Render the Mesh
 			// m_mesh[m_currentMesh].Render();    
 			//m_BasicMeshes[i]->Render();
-		}		
+		//}		
 		//  RenderFPS();     
 		//m_RenderToTexturer.RenderToScreen();
 		//m_RenderToTexturer.Render(texName);
@@ -327,14 +353,15 @@ public:
 		//calculate delta time
 		const auto now = Clock::now();
 		const auto duration = duration_cast<microseconds>(now - lastTime);
-		const float deltaTime = duration.count() / 1000000.0f;
+		deltaTime = duration.count() / 1000000.0f;
+
 		lastTime = now;
 
 
-		m_KinectObj->Tick(deltaTime);
+		//m_KinectObj->Tick(deltaTime);
 		//printf("DT: %.3f \n", deltaTime);
-		m_KinectObj->ConvertColourBufferToTexture();
-		m_KinectObj->DrawPixelBuffer();
+		//m_KinectObj->ConvertColourBufferToTexture();
+		//m_KinectObj->DrawPixelBuffer();
 
 		BlayneBackendSwapBuffers();
 	}
@@ -389,6 +416,102 @@ public:
 	void Run()
 	{
 		BlayneBackendRun(this);
+	}
+
+	bool InitBasicMesh(std::string _path, glm::vec3 _pos, glm::vec3 _rot, glm::vec3 _scale)
+	{
+		BasicMesh* mMesh = new BasicMesh();
+		if (!mMesh->LoadMesh(_path)) {
+			printf(" Did not load mesh?\n");
+			return false;
+		}
+		// Set object orientations here.
+		mMesh->GetOrientation().m_translation = _pos;
+		mMesh->GetOrientation().m_rotation = _rot;
+		mMesh->GetOrientation().m_scale = _scale;
+		m_BasicMeshes.push_back(mMesh);
+
+		return true;
+	}
+
+	bool InitSkinnedMesh(std::string _path, glm::vec3 _pos, glm::vec3 _rot, glm::vec3 _scale)
+	{
+		bMesh* mMesh = new bMesh();
+		if (!mMesh->LoadMesh(_path)) {
+			printf(" Did not load mesh?\n");
+			return false;
+		}
+		// Set object orientations here.
+		//mMesh->GetOrientation().m_translation = _pos;
+		//mMesh->GetOrientation().m_rotation = _rot;
+		//mMesh->GetOrientation().m_scale = _scale;
+		//m_BasicMeshes.push_back(mMesh);
+		m_SkinnedMeshes.push_back(mMesh);
+
+		return true;
+	}
+
+	void RenderBasicMesh(int _whichPipe, int _whichMesh)
+	{
+		//printf("%d, %d \n", _whichPipe, _whichMesh);
+		// Refresh object orientations here.
+		//m_pipelines[0].Orient(m_BasicMeshes[_whichMesh]->GetOrientation());
+		//m_pipelines[_whichPipe].Orient(m_BasicMeshes[_whichMesh]->GetOrientation());
+		m_pipelines[_whichPipe].Orient(m_BasicMeshes[_whichMesh]->GetOrientation());
+		if (_whichMesh == 1)
+		{
+			//m_pipelines[_whichPipe].Rotate(0, 0, 90 * deltaTime);
+			//m_BasicMeshes[_whichMesh]->GetOrientation().m_rotation = m_objRotationEuler;
+			m_pipelines[_whichPipe].Rotate(m_objRotationEuler);
+			//printf("Orientation of Cheb (z): %f \n", m_BasicMeshes[_whichMesh]->GetOrientation().m_rotation.z);
+		}
+			
+		
+		
+		//printf("%f, %f, %f \n", m_BasicMeshes[_whichMesh]->GetOrientation().m_translation.x,
+		//	m_BasicMeshes[_whichMesh]->GetOrientation().m_translation.y,
+		//	m_BasicMeshes[_whichMesh]->GetOrientation().m_translation.z);
+		m_LightingTech.SetWVP(m_pipelines[0].GetWVPTrans());
+		//m_LightingTech.SetWorldMatrix(m_pipelines[0].GetWorldTrans());
+		// Render Mesh
+		m_BasicMeshes[_whichMesh]->Render();
+	}
+
+	void RenderSkinnedMesh(int _whichPipe, int _whichMesh)
+	{
+		m_SkinningTech->Enable();
+		std::vector<glm::mat4> transforms;
+		
+		float runningTime = GetRunningTime();
+		std::vector<Blayne_Types::BoneNameJointOrientations> m_boneNameJointOrientations
+			= m_KinectObj->get_BoneNameJointOrientations();
+
+		/*
+		for (int i = 0; i < m_boneNameJointOrientations.size(); i++)
+		{
+			m_SkinnedMeshes[_whichMesh]->rotateBoneAtFrame(
+				m_boneNameJointOrientations[i].m_boneNameJoint.first, 
+				m_boneNameJointOrientations[i].m_orientation,
+				0,
+				(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene());
+		}
+		*/
+		m_SkinnedMeshes[_whichMesh]->rotateBonesAtFrame(m_boneNameJointOrientations, 0,
+			(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene());
+		//m_SkinnedMeshes[_whichMesh]->BoneTransform(runningTime, transforms);
+		m_SkinnedMeshes[_whichMesh]->BoneTransformAtFrame(0, transforms, 
+			(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene());
+		for (int i = 0; i < transforms.size(); i++)
+		{
+			m_SkinningTech->SetBoneTransform(i, transforms[i]);
+		}
+		m_pipelines[_whichPipe].Rotate(m_objRotationEuler);
+		m_pipelines[_whichPipe].Scale(1.0, 1.0, 1.0);
+		m_pipelines[_whichPipe].WorldPos(1.0, 1.0, 1.0);
+		m_SkinningTech->SetEyeWorldPos(m_pGameCamera->GetCameraPosition());		
+		m_SkinningTech->SetWVP(m_pipelines[0].GetWVPTrans());
+		m_SkinningTech->SetWorldMatrix(m_pipelines[_whichPipe].GetWorldTrans());
+		m_SkinnedMeshes[_whichMesh]->Render();
 	}
 };
 

@@ -27,7 +27,6 @@ const glm::mat4& Blayne_Pipeline::GetWorldTrans()
 
 	ScaleTrans = Blayne_3D_Math::InitScaleTransform(m_scale.x, m_scale.y, m_scale.z);
 	RotateTrans = Blayne_3D_Math::InitRotateTransform(m_rotateInfo.x, m_rotateInfo.y, m_rotateInfo.z);
-	RotateTrans = glm::mat4(1.0f);
 	TranslationTrans = Blayne_3D_Math::InitTranslationTransform(m_translation.x, m_translation.y, m_translation.z);
 
 	m_Wtransformation = TranslationTrans * RotateTrans * ScaleTrans;

@@ -3,10 +3,6 @@
 
 using namespace std;
 
-#define POSITION_LOCATION 0
-#define TEX_COORD_LOCATION 1
-#define NORMAL_LOCATION 2
-
 BasicMesh::BasicMesh()
 {
 	m_VAO = 0;
@@ -122,6 +118,26 @@ bool BasicMesh::InitFromScene(const aiScene* pScene, const string& Filename)
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_Buffers[INDEX_BUFFER]);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Indices[0]) * Indices.size(), &Indices[0], GL_STATIC_DRAW);
+
+	GLenum err;
+	err = glGetError();
+	if (err != GL_NO_ERROR)
+	{
+		cerr << "OpenGL error: " << err << endl;
+		string error;
+		switch (err) {
+		case GL_INVALID_OPERATION:      error = "INVALID_OPERATION";      break;
+		case GL_INVALID_ENUM:           error = "INVALID_ENUM";           break;
+		case GL_INVALID_VALUE:          error = "INVALID_VALUE";          break;
+		case GL_OUT_OF_MEMORY:          error = "OUT_OF_MEMORY";          break;
+		case GL_INVALID_FRAMEBUFFER_OPERATION:  error = "INVALID_FRAMEBUFFER_OPERATION";  break;
+		}
+
+		cerr << "GL_" << error.c_str() << " - " << endl;
+	}
+		
+
+
 
 	return GLCheckError();
 }
