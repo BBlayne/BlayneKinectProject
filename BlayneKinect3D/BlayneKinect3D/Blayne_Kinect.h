@@ -11,6 +11,8 @@
 #include <map>
 
 #include <Kinect.h>
+#include <Kinect.Face.h>
+
 
 #include <GL\glew.h>
 #include <GLFW\glfw3.h>
@@ -67,8 +69,18 @@ public:
 	// Predetermine what subset of Joints we are interested in,
 	// for example, maybe I wanna only test the arms?
 	void setMask();
-	// Getter for our masked joints, corresponding bone names, and their orientations.
-	std::vector<Blayne_Types::BoneNameJointOrientations> get_BoneNameJointOrientations() { return this->m_boneNameJointOrientations; };
+	std::vector<std::string> getMask() { return this->m_MaskBonesForKinect; };
+
+	void setBoneNameJointOrientations();
+
+	// Kinect hand signals to insert key frames
+	bool getBothHandsClosed()
+	{
+		return this->isBothHandsClosed;
+	}
+
+	// Getter for our masked joints, corresponding bone names, and their orientations.	
+	std::map<std::string, Blayne_Types::Blayne_JointOrientations> getJointNameOrientations() { return this->m_JointNameOrientations; }
 private:
 	int COLOUR_WIDTH, COLOUR_HEIGHT;
 	int screenWidth, screenHeight;
@@ -92,6 +104,9 @@ private:
 	ICoordinateMapper* m_coordinateMapper = nullptr;
 	ColorSpacePoint* m_colorSpacePoints = nullptr;
 	IBodyFrameReader* m_bodyFrameReader = nullptr;
+	//IFaceFrameReader* m_faceFrameReader = nullptr;
+	IHighDefinitionFaceFrameReader* m_hdFaceFrameReader = nullptr;
+	
 
 	// Our vertex buffer for our quad.
 	GLuint m_quadVertexBuffer;
@@ -100,11 +115,16 @@ private:
 	// Uniform location for texture
 	GLuint m_texID;
 
-	//std::vector<JointType> m_jointMask;
+	bool isBothHandsClosed = false;
 	
 	// A dictionary of the string "boneName", JointType key, pairings.
 	//std::vector<std::pair<std::string, JointType> > m_jointBoneMask;
 	//std::vector<glm::quat> m_JointQuaternions;
 	// Fuck it
-	std::vector<Blayne_Types::BoneNameJointOrientations> m_boneNameJointOrientations;
+	std::vector<std::string> m_MaskBonesForKinect;
+	std::map<std::string, Blayne_Types::Blayne_JointOrientations> m_JointNameOrientations;
+
+	// Hand States
+	HandState previousLeftHandState = HandState_Unknown;
+	HandState previousRightHandState = HandState_Unknown;
 };

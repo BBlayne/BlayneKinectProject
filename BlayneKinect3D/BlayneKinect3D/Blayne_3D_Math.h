@@ -35,7 +35,9 @@ public:
 	static void PrintAiMatrix(aiMatrix4x4 matrix);
 	static void PrintVector4(glm::vec4 _vector);
 	static void PrintVector3(glm::vec3 _vector);
+	static void PrintQuat(glm::quat _vector);
 	static glm::quat aiQuatToGlMQuat(aiQuaternion _quat);
+	static glm::vec3 aiVec3ToGlMVec3(aiVector3D _vec);
 	static glm::mat4 InitScaleTransform(float ScaleX, float ScaleY, float ScaleZ);
 	static glm::mat4 InitRotateTransform(float RotateX, float RotateY, float RotateZ);
 	static glm::mat4 InitRotateTransform(const glm::quat& quat);

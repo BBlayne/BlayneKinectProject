@@ -90,6 +90,16 @@ glm::quat Blayne_3D_Math::aiQuatToGlMQuat(aiQuaternion _quat)
 	return temp;
 }
 
+glm::vec3 Blayne_3D_Math::aiVec3ToGlMVec3(aiVector3D _vec)
+{
+	glm::vec3 temp;
+	temp.x = _vec.x;
+	temp.y = _vec.y;
+	temp.z = _vec.z;
+
+	return temp;
+}
+
 void Blayne_3D_Math::PrintMatrix(glm::mat4 matrix)
 {
 
@@ -108,4 +118,10 @@ void Blayne_3D_Math::PrintVector4(glm::vec4 _vector)
 void Blayne_3D_Math::PrintVector3(glm::vec3 _vector)
 {
 
+}
+
+void Blayne_3D_Math::PrintQuat(glm::quat _vector)
+{
+	printf("W: %.3f, X: %.3f, Y: %.3f, Z: %.3f. \n", _vector.w,
+		_vector.x, _vector.y, _vector.z);
 }

@@ -64,14 +64,69 @@ int gGLMajorVersion = 0;
 
 typedef enum { CHEB, UNITYCHAN, STEVE, ADRIAN } MESH_TYPE;
 
+typedef enum { TPOSE, FREE, VIEW, INSERT, PLAYER, KINECT_COL } ANIMATION_MODE;
+
 #define imageWidth 1024
 #define imageHeight 1024
 //static GLubyte checkImage[imageHeight][imageWidth][4];
 const int channels = 4;
 static GLubyte* checkImage;
 static GLuint texName;
-
+bool insertedKeyFrame = false;
+bool isInsertingKeyFrame = false;
 auto lastTime = Clock::now();
+
+// Stuff for key frames
+int minFrames = 0;
+int maxFrames = 1;
+int frameVal = 0;
+int maxFramesVal = 0;
+int prevMaxFramesVal = 0;
+
+// Function called to copy the content of a std::string (souceString) handled 
+// by the AntTweakBar library to destinationClientString handled by our application
+void TW_CALL CopyStdStringToClient(std::string& destinationClientString, const std::string& sourceLibraryString)
+{
+	// Copy the content of souceString handled by the AntTweakBar library to destinationClientString handled by your application
+	destinationClientString = sourceLibraryString;
+}
+
+std::vector<std::string> g_BarTitles;
+
+// Callback function called by AntTweakBar to set the "EditTitle" std::string variable
+void TW_CALL SetBarTitleCB(const void *value, void *clientData)
+{
+	const std::string *newTitle = (const std::string *)(value);
+	int barIndex = *(int *)(&clientData);   // clientData stores the bar index
+
+											// Stores the new bar title
+	g_BarTitles[barIndex] = *newTitle;
+
+	// Create the def command to change the bar label (ie., its title)
+	std::stringstream def;
+	def << "bar_" << barIndex << " label=`" << g_BarTitles[barIndex] << "`";
+	// Execute the command
+	TwDefine(def.str().c_str());
+}
+
+// Callback function called by AntTweakBar to get the "EditTitle" std::string variable
+void TW_CALL GetBarTitleCB(void *value, void *clientData)
+{
+	std::string *destStringPtr = (std::string *)(value);
+	int barIndex = *(int *)(&clientData);   // clientData stores the bar index
+	std::string title = g_BarTitles[barIndex];
+
+	// Do not assign destStringPtr directly (see TwCopyStdStringToLibrary doc for explanation):
+	// Use TwCopyStdStringToLibrary to copy the bar title string to AntTweakBar
+	TwCopyStdStringToLibrary(*destStringPtr, title);
+}
+
+void TW_CALL InsertKeyFrameButton(void *clientData)
+{
+	ANIMATION_MODE _mode = *(ANIMATION_MODE*)clientData;
+	if (_mode == ANIMATION_MODE::INSERT)
+		isInsertingKeyFrame = true;
+}
 
 void makeCheckImage()
 {
@@ -116,9 +171,9 @@ class BlayneKinect3D : public IBlayneCallbacks, public BlayneApp
 private:
 	std::vector<BlayneBasicLightingTechnique> m_LightingTechs;
 	BlayneBasicLightingTechnique m_LightingTech;
+	BlayneBasicLightingTechnique m_KinectTectureTech;
 	// Shader/Lighting info for a skinned mesh
 	SkinningTechnique* m_SkinningTech;
-	// m_LightingTech;
 	Blayne_Camera* m_pGameCamera;
 	DirectionalLight m_directionalLight;
 	// Basic Meshes Array?
@@ -139,6 +194,11 @@ private:
 	//bool InitBasicMesh(std::string _path, glm::vec3 pos, glm::vec3 rot, glm::vec3 scale);
 	//void RenderBasicMesh(int _whichPipe, int _whichMesh);
 	glm::vec3 m_objRotationEuler = glm::vec3(0, 0, 0);
+	ANIMATION_MODE m_currentMode = ANIMATION_MODE::TPOSE;
+	aiAnimation* m_CurrentSelectAnim;
+	int m_currentlySelectedAnimation = 0;
+	int m_maxAnimation;
+	TwType animationsType;
 public:
 	BlayneKinect3D() { 
 		m_pGameCamera = NULL;
@@ -192,11 +252,13 @@ public:
 			return false;
 		}
 
-		glm::vec3 Pos(0.0f, 2.0f, -12.5f);
-		glm::vec3 LookAt(0.0f, 2.0f, 10.0f);
+		TwCopyStdStringToClientFunc(CopyStdStringToClient);
+
+		glm::vec3 Pos(0.0f, 4.0f, -8.0f);
+		glm::vec3 LookAt(0.0f, 4.0f, 0.0f);
 		glm::vec3 Up(0.0f, 1.0f, 0.0f);
 
-		//initImage();
+		initImage();
 
 
 		m_pGameCamera = new Blayne_Camera(WINDOW_WIDTH, WINDOW_HEIGHT, Pos, LookAt, Up);
@@ -206,6 +268,18 @@ public:
 			return false;
 		}
 
+		if (!m_KinectTectureTech.Init2())
+		{
+			printf("Error initializing the m_KinectTectureTech \n");
+			OGLDEV_ERROR("Error initializing the m_KinectTectureTech\n");
+			return false;
+		}
+
+		m_KinectTectureTech.Enable();
+		m_KinectTectureTech.SetColorTextureUnit(COLOR_TEXTURE_UNIT_INDEX);
+		m_KinectTectureTech.SetDirectionalLight(m_directionalLight);
+		m_KinectTectureTech.SetMatSpecularIntensity(0.0f);
+		m_KinectTectureTech.SetMatSpecularPower(0);
 
 		m_LightingTech.Enable();
 		printf("m_LightingTech enabled\n");
@@ -237,13 +311,23 @@ public:
 			return false;
 			
 		// Dave.fbx, BasicCheb.fbx
-		if (!this->InitBasicMesh("BasicCheb.fbx",
+		if (!this->InitBasicMesh("George.fbx",
 			glm::vec3(0.0f, 0.0f, 0.0f),
 			m_objRotationEuler,
 			glm::vec3(1.0f, 1.0f, 1.0f)))
 			return false;
-
+		/*
 		if (!this->InitSkinnedMesh("Dave.fbx",
+			glm::vec3(0.0f, 0.0f, 0.0f),
+			m_objRotationEuler,
+			glm::vec3(1.0f, 1.0f, 1.0f)))
+		{
+			printf("Error loading Dave\n");
+			return false;
+		}
+		*/
+
+		if (!this->InitSkinnedMesh("George.fbx",
 			glm::vec3(0.0f, 0.0f, 0.0f),
 			m_objRotationEuler,
 			glm::vec3(1.0f, 1.0f, 1.0f)))
@@ -256,6 +340,50 @@ public:
 		// TwBar stuff.
 		bar = TwNewBar("Blayne's Kinect v2.0 3D App.");
 
+		TwEnumVal AnimationModes[] = {
+			{ TPOSE, "TPose" },
+			{ FREE, "Free" },
+			{ VIEW, "View" },
+			{ INSERT, "Insert" },
+			{ PLAYER, "Player" },
+			{ KINECT_COL, "Kinect" }
+		};
+
+		TwType AnimTwType = TwDefineEnum("AnimationMode", AnimationModes, 6);
+		// Link it to the tweak bar
+		TwAddVarRW(bar, "Anim Mode:", AnimTwType, &m_currentMode, NULL);
+
+		// The second parameter is an optional name
+		TwAddSeparator(bar, "", NULL);
+
+		// Animations
+		animationsType = TwDefineEnum("SeasonType", NULL, 0);
+
+		std::string defaultAnims;
+		m_maxAnimation = 0;
+		if (m_SkinnedMeshes[0]->getScene()->HasAnimations())
+		{
+			defaultAnims = " enum='";
+			m_maxAnimation = m_SkinnedMeshes[0]->getScene()->mNumAnimations;
+			int i = 0;
+			for ( ; i < m_maxAnimation; i++)
+			{
+				defaultAnims.append(std::to_string(i) + " {").append(m_SkinnedMeshes[0]->getScene()->mAnimations[i]->mName.data).append("}, ");
+			}
+
+			defaultAnims.append(std::to_string(i) + " { New Animation }' ");
+		}
+		else
+		{
+			defaultAnims = " enum='0 { New Animation }' ";
+			// SkinnedMesh Create new Blank animation with default T-Pose keyframe at frame 0
+		}
+
+		TwAddVarRW(bar, "Animations", animationsType, &m_currentlySelectedAnimation,
+			defaultAnims.c_str());
+
+		TwAddSeparator(bar, "", NULL);
+
 		m_pGameCamera->AddToATB(bar);
 		TwAddSeparator(bar, "", NULL);
 		TwAddVarRW(bar, "ObjRotation", TW_TYPE_BLAYNE_VECTOR3F, (void*)&m_objRotationEuler, NULL);
@@ -263,6 +391,22 @@ public:
 		m_directionalLight.AddToATB(bar);
 		float refresh = 0.1f;
 		TwSetParam(bar, NULL, "refresh", TW_PARAM_FLOAT, 1, &refresh);
+		TwAddSeparator(bar, "", NULL);
+		TwAddButton(bar, "InsertKeyFrame", InsertKeyFrameButton, &m_currentMode, " label='Insert Key Frame' ");
+		// Current Frame selects the current available frame to view & insert
+		TwAddVarRW(bar, "frame", TW_TYPE_INT32, &frameVal,
+			" label='Current Frame' step=1 ");
+		TwAddVarRW(bar, "maxframes", TW_TYPE_INT32, &maxFramesVal,
+			" label='Set Max Frames' step=1 ");
+
+		maxFrames = m_SkinnedMeshes[0]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration;
+		maxFramesVal = maxFrames + 1;
+		TwSetParam(bar, "frame", "min", TW_PARAM_INT32, 1, &minFrames);
+		TwSetParam(bar, "frame", "max", TW_PARAM_INT32, 1, &maxFrames);
+		minFrames = 1;
+		TwSetParam(bar, "maxframes", "min", TW_PARAM_INT32, 1, &maxFrames);
+		TwSetParam(bar, "maxframes", "max", TW_PARAM_INT32, 1, &maxFrames);
+
 		// Message added to the help bar.
 		TwDefine(" GLOBAL help='This example shows how to integrate AntTweakBar with OGLDEV.' "); 
 		TwAddVarRO(bar, "GL Major Version", TW_TYPE_INT32, &gGLMajorVersion, " label='Major version of GL' ");
@@ -287,15 +431,16 @@ public:
 			return false;
 		}
 
-		/*
+		
 		if (!m_KinectObj->InitShaders())
 		{
 			printf(" Did not init kinect shaders?\n");
 			return false;
 		}
-		*/
+		
 
-		//m_KinectObj->InitRenderTarget();
+		m_KinectObj->InitRenderTarget();
+		m_KinectObj->setBoneNameJointOrientations();
 		m_KinectObj->setMask();
 
 		lastTime = Clock::now();
@@ -307,7 +452,7 @@ public:
 	{
 		// Kinect
 		m_KinectObj->TickForJointsInfo(deltaTime);
-		//m_RenderToTexturer.RenderToFrameBuffer();
+			//m_RenderToTexturer.RenderToFrameBuffer();
 		// Handle camera being rotated via user edging
 		// the mouse along the edge of the screen.
 		//m_pGameCamera->OnRender();      
@@ -325,27 +470,15 @@ public:
 		// Pass our camera object to our pipeline object.
 		m_pipelines[0].SetCamera(*m_pGameCamera);
 
-
 		// Refresh orientations & call rendering
 		this->RenderBasicMesh(0, 0);
-		//this->RenderBasicMesh(0, 1);
 		this->RenderSkinnedMesh(0, 0);
-
-		// Update MVP.
-		//for (int i = 0; i < m_BasicMeshes.size(); i++)
-		//{
-
-			//m_pipeline.Orient(m_BasicMeshes[0]->GetOrientation());
-			//m_LightingTech.SetWVP(m_pipeline.GetWVPTrans());
-			//m_LightingTech.SetWorldMatrix(m_pipeline.GetWorldTrans());
-
-			// Render the Mesh
-			// m_mesh[m_currentMesh].Render();    
-			//m_BasicMeshes[i]->Render();
-		//}		
+	
 		//  RenderFPS();     
-		//m_RenderToTexturer.RenderToScreen();
-		//m_RenderToTexturer.Render(texName);
+
+			//m_RenderToTexturer.RenderToScreen();
+			//m_RenderToTexturer.Render(texName);
+
 		
 
 
@@ -357,8 +490,14 @@ public:
 
 		lastTime = now;
 
-
-		//m_KinectObj->Tick(deltaTime);
+		if (m_currentMode == KINECT_COL)
+		{
+			m_KinectTectureTech.Enable();
+			m_KinectObj->Tick(deltaTime);
+			m_KinectObj->ConvertColourBufferToTexture();
+			m_KinectObj->DrawPixelBuffer();
+		}
+		
 		//printf("DT: %.3f \n", deltaTime);
 		//m_KinectObj->ConvertColourBufferToTexture();
 		//m_KinectObj->DrawPixelBuffer();
@@ -441,18 +580,15 @@ public:
 			printf(" Did not load mesh?\n");
 			return false;
 		}
+		maxFrames = mMesh->getScene()->mAnimations[0]->mDuration - 1;
 		// Set object orientations here.
-		//mMesh->GetOrientation().m_translation = _pos;
-		//mMesh->GetOrientation().m_rotation = _rot;
-		//mMesh->GetOrientation().m_scale = _scale;
-		//m_BasicMeshes.push_back(mMesh);
 		m_SkinnedMeshes.push_back(mMesh);
-
 		return true;
 	}
 
 	void RenderBasicMesh(int _whichPipe, int _whichMesh)
 	{
+		m_LightingTech.Enable();
 		//printf("%d, %d \n", _whichPipe, _whichMesh);
 		// Refresh object orientations here.
 		//m_pipelines[0].Orient(m_BasicMeshes[_whichMesh]->GetOrientation());
@@ -483,35 +619,130 @@ public:
 		std::vector<glm::mat4> transforms;
 		
 		float runningTime = GetRunningTime();
-		std::vector<Blayne_Types::BoneNameJointOrientations> m_boneNameJointOrientations
-			= m_KinectObj->get_BoneNameJointOrientations();
 
-		/*
-		for (int i = 0; i < m_boneNameJointOrientations.size(); i++)
+		if (m_currentlySelectedAnimation < m_SkinnedMeshes[0]->getScene()->mNumAnimations)
 		{
-			m_SkinnedMeshes[_whichMesh]->rotateBoneAtFrame(
-				m_boneNameJointOrientations[i].m_boneNameJoint.first, 
-				m_boneNameJointOrientations[i].m_orientation,
-				0,
+			maxFrames = m_SkinnedMeshes[0]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration;
+			maxFramesVal = maxFrames;
+			TwSetParam(bar, "frame", "max", TW_PARAM_INT32, 1, &maxFrames);
+			TwSetParam(bar, "maxframes", "max", TW_PARAM_INT32, 1, &maxFrames);
+			TwRefreshBar(bar);
+		}
+
+
+		if (m_currentlySelectedAnimation == m_maxAnimation)
+		{
+			// Can I change the name...?
+			AddNewAnimationToScene(); // testing this out
+
+			m_currentMode = ANIMATION_MODE::INSERT;
+			m_SkinnedMeshes[_whichMesh]->m_mask = m_KinectObj->getMask();
+			m_SkinnedMeshes[_whichMesh]->m_JointNameOrientations = m_KinectObj->getJointNameOrientations();
+			m_SkinnedMeshes[_whichMesh]->KinectBoneTransform(transforms,
 				(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene());
 		}
-		*/
-		m_SkinnedMeshes[_whichMesh]->rotateBonesAtFrame(m_boneNameJointOrientations, 0,
-			(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene());
-		//m_SkinnedMeshes[_whichMesh]->BoneTransform(runningTime, transforms);
-		m_SkinnedMeshes[_whichMesh]->BoneTransformAtFrame(0, transforms, 
-			(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene());
+		else
+		{
+			if (m_currentMode == ANIMATION_MODE::TPOSE)
+			{
+				// Render Basic Mesh
+				RenderBasicMesh(0, 1);
+				return;
+			}
+			else if (m_currentMode == ANIMATION_MODE::FREE)
+			{
+				m_SkinnedMeshes[_whichMesh]->m_mask = m_KinectObj->getMask();
+				m_SkinnedMeshes[_whichMesh]->m_JointNameOrientations = m_KinectObj->getJointNameOrientations();
+				m_SkinnedMeshes[_whichMesh]->KinectBoneTransform(transforms,
+					(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene());
+			}
+			else if (m_currentMode == ANIMATION_MODE::INSERT)
+			{
+				maxFrames = m_SkinnedMeshes[0]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration;
+				maxFramesVal = maxFrames;
+				TwSetParam(bar, "frame", "max", TW_PARAM_INT32, 1, &maxFramesVal);
+				TwSetParam(bar, "maxframes", "max", TW_PARAM_INT32, 1, &maxFramesVal);
+				TwRefreshBar(bar);
+				if (m_KinectObj->getBothHandsClosed() || isInsertingKeyFrame)
+				{
+					if (!insertedKeyFrame)
+					{
+						// Both hands are closed, insert key frame.
+						printf("Hands are closed. \n");
+						insertedKeyFrame = true;
+						m_SkinnedMeshes[_whichMesh]->m_mask = m_KinectObj->getMask();
+						m_SkinnedMeshes[_whichMesh]->m_JointNameOrientations = m_KinectObj->getJointNameOrientations();
+						// We pass the frame in which we wish to insert our new key frame animation
+						m_SkinnedMeshes[_whichMesh]->KinectBoneTransformAtFrame(frameVal, transforms,
+							(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene(), m_currentlySelectedAnimation);
+					}
+					else
+					{
+						isInsertingKeyFrame = false;
+
+						m_SkinnedMeshes[_whichMesh]->m_mask = m_KinectObj->getMask();
+						m_SkinnedMeshes[_whichMesh]->m_JointNameOrientations = m_KinectObj->getJointNameOrientations();
+						m_SkinnedMeshes[_whichMesh]->KinectBoneTransform(transforms,
+							(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene());
+					}
+				}
+				else
+				{
+					if (insertedKeyFrame)
+					{
+						insertedKeyFrame = false;
+					}
+
+					m_SkinnedMeshes[_whichMesh]->m_mask = m_KinectObj->getMask();
+					m_SkinnedMeshes[_whichMesh]->m_JointNameOrientations = m_KinectObj->getJointNameOrientations();
+					m_SkinnedMeshes[_whichMesh]->KinectBoneTransform(transforms,
+						(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene());
+				}
+			}
+			else if (m_currentMode == ANIMATION_MODE::VIEW)
+			{
+				// Viewing inserted frames
+				m_SkinnedMeshes[_whichMesh]->BoneTransformAtFrame(frameVal, transforms,
+					(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene(), m_currentlySelectedAnimation);
+			}
+			else if (m_currentMode == ANIMATION_MODE::PLAYER)
+			{
+				m_SkinnedMeshes[_whichMesh]->BoneTransform(runningTime, transforms, m_currentlySelectedAnimation);
+			
+			}
+		}
+
 		for (int i = 0; i < transforms.size(); i++)
 		{
 			m_SkinningTech->SetBoneTransform(i, transforms[i]);
 		}
 		m_pipelines[_whichPipe].Rotate(m_objRotationEuler);
 		m_pipelines[_whichPipe].Scale(1.0, 1.0, 1.0);
-		m_pipelines[_whichPipe].WorldPos(1.0, 1.0, 1.0);
+		m_pipelines[_whichPipe].WorldPos(0.0, 0.0, 0.0);
 		m_SkinningTech->SetEyeWorldPos(m_pGameCamera->GetCameraPosition());		
-		m_SkinningTech->SetWVP(m_pipelines[0].GetWVPTrans());
+		m_SkinningTech->SetWVP(m_pipelines[_whichPipe].GetWVPTrans());
 		m_SkinningTech->SetWorldMatrix(m_pipelines[_whichPipe].GetWorldTrans());
 		m_SkinnedMeshes[_whichMesh]->Render();
+	}
+
+	void AddNewAnimationToScene()
+	{
+		m_SkinnedMeshes[0]->CreateAnimation();
+		std::string defaultAnims;
+		m_maxAnimation = 0;
+
+		defaultAnims = "";
+		m_maxAnimation = m_SkinnedMeshes[0]->getScene()->mNumAnimations;
+		int i = 0;
+		for (; i < m_maxAnimation; i++)
+		{
+			defaultAnims.append(std::to_string(i) + " {").append(m_SkinnedMeshes[0]->getScene()->mAnimations[i]->mName.data).append("}, ");
+		}
+
+		defaultAnims.append(std::to_string(i) + " { New Animation } ");
+
+		TwSetParam(bar, "Animations", "enum", TW_PARAM_CSTRING, 1, defaultAnims.c_str());
+		TwRefreshBar(bar);
 	}
 };
 

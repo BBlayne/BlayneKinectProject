@@ -1,6 +1,8 @@
 #include "bMesh.h"
 #include "Blayne_3D_Math.h"
 
+#include <algorithm>
+
 bMesh::bMesh() : ID(currID++)
 {
 	m_VAO = 0;
@@ -312,7 +314,7 @@ bool bMesh::LoadMesh(const std::string& Filename)
 
 	bool Ret = false;
 
-	m_pScene = m_Importer.ReadFile(Filename.c_str(), aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs);
+	m_pScene = (aiScene*)m_Importer.ReadFile(Filename.c_str(), aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs);
 
 	if (m_pScene) {
 		CopyaiMat(&m_pScene->mRootNode->mTransformation, m_GlobalInverseTransform);
@@ -623,11 +625,42 @@ void bMesh::BoneTransform(float TimeInSeconds, std::vector<glm::mat4>& Transform
 		float TimeInTicks = TimeInSeconds * TicksPerSecond;
 		float AnimationTime = fmod(TimeInTicks, m_pScene->mAnimations[0]->mDuration);
 		//printf("BoneTransform: AnimTime. %f \n", AnimationTime);
-		//printf("TimeSeconds: %f: AnimationTime: %f: TicksPS: %f: TinTicks: %f, mDur: %f \n", 
-		//	TimeInSeconds, 
-		//	AnimationTime, TicksPerSecond, TimeInTicks,
-		//	m_pScene->mAnimations[0]->mDuration);
+		/*
+		printf("TimeSeconds: %f: AnimationTime: %f: TicksPS: %f: TinTicks: %f, mDur: %f \n", 
+			TimeInSeconds, 
+			AnimationTime, TicksPerSecond, TimeInTicks,
+			m_pScene->mAnimations[0]->mDuration);
+			*/
 		ReadNodeHeirarchy(AnimationTime, m_pScene->mRootNode, Identity);
+		Transforms.clear();
+		Transforms.resize(m_NumBones);
+		//printf("BoneTransform, numBones: %d \n", m_NumBones);
+
+		for (glm::uint i = 0; i < m_NumBones; i++) {
+			Transforms[i] = m_BoneInfo[i].FinalTransformation;
+		}
+	}
+	else
+	{
+		printf("Error, no animations present.");
+	}
+}
+
+void bMesh::BoneTransform(float TimeInSeconds, std::vector<glm::mat4>& Transforms, int _animation)
+{
+	glm::mat4 Identity = glm::mat4(1.0f);
+	if (this->m_pScene->HasAnimations())
+	{
+		float TicksPerSecond = m_pScene->mAnimations[_animation]->mTicksPerSecond != 0 ?
+			m_pScene->mAnimations[_animation]->mTicksPerSecond : 25.0f;
+		float TimeInTicks = TimeInSeconds * TicksPerSecond;
+		float AnimationTime = fmod(TimeInTicks, m_pScene->mAnimations[_animation]->mDuration);
+		//printf("BoneTransform: AnimTime. %f \n", AnimationTime);
+		printf("TimeSeconds: %f: AnimationTime: %f: TicksPS: %f: TinTicks: %f, mDur: %f \n",
+			TimeInSeconds,
+			AnimationTime, TicksPerSecond, TimeInTicks,
+			m_pScene->mAnimations[_animation]->mDuration);
+		ReadNodeHeirarchy(AnimationTime, m_pScene->mRootNode, Identity, _animation);
 		Transforms.clear();
 		Transforms.resize(m_NumBones);
 		//printf("BoneTransform, numBones: %d \n", m_NumBones);
@@ -686,6 +719,55 @@ void bMesh::ReadNodeHeirarchy(float AnimationTime, const aiNode* pNode, const gl
 
 	for (glm::uint i = 0; i < pNode->mNumChildren; i++) {
 		ReadNodeHeirarchy(AnimationTime, pNode->mChildren[i], GlobalTransformation);
+	}
+}
+
+void bMesh::ReadNodeHeirarchy(float AnimationTime, const aiNode* pNode, const glm::mat4& ParentTransform, int _anim)
+{
+	std::string NodeName(pNode->mName.data);
+	const aiAnimation* pAnimation = m_pScene->mAnimations[_anim];
+	glm::mat4 NodeTransformation = glm::mat4();
+	CopyaiMat(&pNode->mTransformation, NodeTransformation);
+	const aiNodeAnim* pNodeAnim = FindNodeAnim(pAnimation, NodeName);
+
+	if (pNodeAnim) {
+		// Interpolate scaling and generate scaling transformation matrix
+		aiVector3D Scaling;
+		CalcInterpolatedScaling(Scaling, AnimationTime, pNodeAnim);
+		glm::mat4 ScalingM;
+		glm::vec3 mScalingVector(Scaling.x, Scaling.y, Scaling.z);
+		ScalingM = glm::scale(mScalingVector);
+
+		// Interpolate rotation and generate rotation transformation matrix
+		aiQuaternion RotationQ;
+		CalcInterpolatedRotation(RotationQ, AnimationTime, pNodeAnim);
+		glm::mat4 RotationM;
+		CopyaiMat(&fromMatrix3x3(RotationQ.GetMatrix()), RotationM);
+		//glm::quat myQuat = glm::quat(RotationQ.w, RotationQ.x, RotationQ.y, RotationQ.z);
+		//RotationM = glm::toMat4(myQuat);
+
+		// Interpolate translation and generate translation transformation matrix
+		aiVector3D Translation;
+		CalcInterpolatedPosition(Translation, AnimationTime, pNodeAnim);
+		glm::mat4 TranslationM;
+		TranslationM = glm::translate(glm::vec3(Translation.x, Translation.y, Translation.z));
+		std::string BoneName(pNode->mName.data);
+
+		// Combine the above transformations
+		NodeTransformation = TranslationM * RotationM * ScalingM;
+	}
+
+	glm::mat4 GlobalTransformation;
+
+	GlobalTransformation = ParentTransform * NodeTransformation;
+
+	if (m_BoneMapping.find(NodeName) != m_BoneMapping.end()) {
+		glm::uint BoneIndex = m_BoneMapping[NodeName];
+		m_BoneInfo[BoneIndex].FinalTransformation = m_GlobalInverseTransform * GlobalTransformation * m_BoneInfo[BoneIndex].BoneOffset;
+	}
+
+	for (glm::uint i = 0; i < pNode->mNumChildren; i++) {
+		ReadNodeHeirarchy(AnimationTime, pNode->mChildren[i], GlobalTransformation, _anim);
 	}
 }
 
@@ -908,92 +990,18 @@ void bMesh::createSkeleton(const aiMesh* pMesh)
 
 }
 
-void bMesh::rotateBonesAtFrame(std::vector<Blayne_Types::BoneNameJointOrientations> _boneNameJointOrientations, int frame, aiScene* _scene)
-{
-
-	std::string boneSpineBase = _boneNameJointOrientations[0].m_boneNameJoint.first;
-	glm::quat _quatSpineBase = _boneNameJointOrientations[0].m_orientation;	
-	const aiNodeAnim* _nodeSpineBase = FindNodeAnim(_scene->mAnimations[0], boneSpineBase);
-	std::string boneSpineMid = _boneNameJointOrientations[1].m_boneNameJoint.first;
-	glm::quat _quatSpineMid = _boneNameJointOrientations[1].m_orientation;
-	const aiNodeAnim* _nodeSpineMid = FindNodeAnim(_scene->mAnimations[0], boneSpineMid);
-	std::string boneSpineShoulder = _boneNameJointOrientations[2].m_boneNameJoint.first;
-	glm::quat _quatSpineShoulder = _boneNameJointOrientations[2].m_orientation;
-	const aiNodeAnim* _nodeSpineShoulder = FindNodeAnim(_scene->mAnimations[0], boneSpineShoulder);
-	std::string boneShoulderLeft = _boneNameJointOrientations[3].m_boneNameJoint.first;
-	glm::quat _quatShoulderLeft = _boneNameJointOrientations[3].m_orientation;
-	glm::vec3 _ShouldLeftPos = _boneNameJointOrientations[3].m_jointPosition;
-	const aiNodeAnim* _nodeShoulderLeft = FindNodeAnim(_scene->mAnimations[0], boneShoulderLeft);
-	std::string boneElbowLeft = _boneNameJointOrientations[4].m_boneNameJoint.first;
-	glm::quat _quatElbowLeft = _boneNameJointOrientations[4].m_orientation;
-	const aiNodeAnim* _nodeElbowLeft = FindNodeAnim(_scene->mAnimations[0], boneElbowLeft);
-	std::string boneWristLeft = _boneNameJointOrientations[5].m_boneNameJoint.first;
-	glm::quat _quatWristLeft = _boneNameJointOrientations[5].m_orientation;
-	const aiNodeAnim* _nodeWristLeft = FindNodeAnim(_scene->mAnimations[0], boneWristLeft);
-
-	glm::mat4 LocalNodeTransform;
-	glm::mat4 GlobalNodeTransform;
-	glm::mat4 AnimTransform;
-	glm::quat _rotation;
-
-
-	glm::vec3 LeftShoulderPos = _boneNameJointOrientations[0].m_jointPosition;
-	glm::vec3 LeftElbowPos = _boneNameJointOrientations[1].m_jointPosition;
-
-	FindBone("Chest", this->getScene()->mRootNode, glm::mat4(1.0), GlobalNodeTransform);
-	glm::quat globalRot;
-	glm::decompose(GlobalNodeTransform, glm::vec3(1.0), globalRot, glm::vec3(1.0), glm::vec3(1.0), glm::vec4(1.0));
-	_rotation = glm::inverse(glm::conjugate(globalRot)) * _quatElbowLeft;
-
-	//boneSpineShoulder
-	globalRot.w = _nodeSpineShoulder->mRotationKeys[frame].mValue.w;
-	globalRot.x = _nodeSpineShoulder->mRotationKeys[frame].mValue.x;
-	globalRot.y = _nodeSpineShoulder->mRotationKeys[frame].mValue.y;
-	globalRot.z = _nodeSpineShoulder->mRotationKeys[frame].mValue.z;
-
-	_rotation = glm::inverse(globalRot) * _quatElbowLeft;
-
-	_nodeShoulderLeft->mRotationKeys[frame].mValue = aiQuaternion(_rotation.w, _rotation.x, _rotation.y, _rotation.z);
-
-	FindBone("Upper Arm.L", this->getScene()->mRootNode, glm::mat4(1.0), GlobalNodeTransform);
-	//GlobalNodeTransform = GlobalNodeTransform * glm::toMat4(_rotation);
-	glm::decompose(GlobalNodeTransform, glm::vec3(1.0), globalRot, glm::vec3(1.0), glm::vec3(1.0), glm::vec4(1.0));
-	//CopyaiMat(&_scene->mRootNode->FindNode(std::string("Upper Arm.L").c_str())->mTransformation, LocalNodeTransform);
-	//glm::decompose(LocalNodeTransform, glm::vec3(1.0), globalRot, glm::vec3(1.0), glm::vec3(1.0), glm::vec4(1.0));
-	
-	
-	glm::quat elbowRot = _rotation * glm::inverse(glm::conjugate(globalRot)) * _quatWristLeft;
-	_nodeElbowLeft->mRotationKeys[frame].mValue = aiQuaternion(elbowRot.w, elbowRot.x, elbowRot.y, elbowRot.z);
-
-
-}
-
 void bMesh::rotateBoneAtFrame(std::string boneName, glm::quat _newRot, int frame, aiScene* _scene)
 {
 	glm::mat4 LocalNodeTransform;
 	glm::mat4 GlobalNodeTransform;
 	glm::mat4 AnimTransform;
 	const aiNodeAnim* _node = FindNodeAnim(_scene->mAnimations[0], boneName);
-	//CopyaiMat(&fromMatrix3x3(_node->mRotationKeys[frame].mValue.GetMatrix()), AnimTransform);
 	CopyaiMat(&_scene->mRootNode->FindNode(boneName.c_str())->mTransformation, LocalNodeTransform);
 
 	FindBone(boneName, _scene->mRootNode, glm::mat4(1.0), GlobalNodeTransform);
-	glm::quat _rotation;
-	glm::quat global_rot;
-	global_rot = 
-		(glm::angleAxis(glm::radians(90.0f), glm::vec3(0, 1, 0)) *
-		glm::angleAxis(glm::radians(-90.0f), glm::vec3(0, 0, 1)));
-
-	
-
-	glm::quat myQuat;
-	glm::vec3 EulerAngles = glm::vec3((0.0f), (0.0f), (90.0f));
-	myQuat = glm::quat(EulerAngles);
-
-	
+	glm::quat _rotation;	
 
 	_rotation = _newRot;
-	//_rotation = _rotation * _newRot;
 	_node->mRotationKeys[frame].mValue = aiQuaternion(_rotation.w, _rotation.x, _rotation.y, _rotation.z);
 }
 
@@ -1249,38 +1257,29 @@ void AddKeyFrame()
 
 }
 
-void bMesh::InsertKeyFrame(glm::uint frame, const aiNode* pNode, aiScene* _scene)
+void bMesh::InsertKeyFrame(glm::uint frame, int _animation, const aiNode* pNode, aiScene* _scene)
 {
-	// Make sure we have a "scene"
-	if (_scene == NULL)
-		return;
 
-	if (_scene->mNumAnimations == 0)
-		return;
-
-	if (_scene->mNumMeshes == 0)
-		return;
-
-
-	int numFrames = _scene->mAnimations[0]->mDuration;
+	int numFrames = _scene->mAnimations[_animation]->mDuration;
+	printf("Inserting Key Frame to %s \n", _scene->mAnimations[_animation]->mName.C_Str());
 
 	// Need to handle situation where user is a dumb dumb and adds more than 1 frame at a time...?
-	if (frame > numFrames || numFrames == 0)
+	if (frame >= numFrames || numFrames == 0)
 	{
 		// creating our first frame or adding a frame
 		for (glm::uint i = 0; i < _scene->mMeshes[0]->mNumBones; i++)
 		{
 			// store old arrays & sizes
-			int numPosKeys = _scene->mAnimations[0]->mChannels[i]->mNumPositionKeys;
-			aiVectorKey* posKeys = _scene->mAnimations[0]->mChannels[i]->mPositionKeys;
+			int numPosKeys = _scene->mAnimations[_animation]->mChannels[i]->mNumPositionKeys;
+			aiVectorKey* posKeys = _scene->mAnimations[_animation]->mChannels[i]->mPositionKeys;
 
-			int numScaleKeys = _scene->mAnimations[0]->mChannels[i]->mNumScalingKeys;
-			aiVectorKey* scaleKeys = _scene->mAnimations[0]->mChannels[i]->mScalingKeys;
+			int numScaleKeys = _scene->mAnimations[_animation]->mChannels[i]->mNumScalingKeys;
+			aiVectorKey* scaleKeys = _scene->mAnimations[_animation]->mChannels[i]->mScalingKeys;
 
-			int numQuatKeys = _scene->mAnimations[0]->mChannels[i]->mNumRotationKeys;
-			aiQuatKey* quatKeys = _scene->mAnimations[0]->mChannels[i]->mRotationKeys;
+			int numQuatKeys = _scene->mAnimations[_animation]->mChannels[i]->mNumRotationKeys;
+			aiQuatKey* quatKeys = _scene->mAnimations[_animation]->mChannels[i]->mRotationKeys;
 
-			std::string BoneName(customScene->mMeshes[0]->mBones[i]->mName.data);
+			std::string BoneName(_scene->mMeshes[0]->mBones[i]->mName.data);
 			printf("Current Bone: %s \n", BoneName);
 			aiVectorKey posKeyFrame;
 			posKeyFrame.mTime = frame;
@@ -1301,55 +1300,56 @@ void bMesh::InsertKeyFrame(glm::uint frame, const aiNode* pNode, aiScene* _scene
 			_rot = glm::conjugate(_rot);
 			rotKeyFrame.mValue = aiQuaternion(_rot.x, _rot.y, _rot.z, _rot.w);
 
-			_scene->mAnimations[0]->mChannels[i]->mNumPositionKeys = numPosKeys + 1;
-			_scene->mAnimations[0]->mChannels[i]->mNumScalingKeys = numScaleKeys + 1;
-			_scene->mAnimations[0]->mChannels[i]->mNumRotationKeys = numQuatKeys + 1;
+			_scene->mAnimations[_animation]->mChannels[i]->mNumPositionKeys = numPosKeys + 1;
+			_scene->mAnimations[_animation]->mChannels[i]->mNumScalingKeys = numScaleKeys + 1;
+			_scene->mAnimations[_animation]->mChannels[i]->mNumRotationKeys = numQuatKeys + 1;
 
-			_scene->mAnimations[0]->mChannels[i]->mPositionKeys = new aiVectorKey[numPosKeys + 1];
-			_scene->mAnimations[0]->mChannels[i]->mScalingKeys = new aiVectorKey[numScaleKeys + 1];
-			_scene->mAnimations[0]->mChannels[i]->mRotationKeys = new aiQuatKey[numQuatKeys + 1];
+			_scene->mAnimations[_animation]->mChannels[i]->mPositionKeys = new aiVectorKey[numPosKeys + 1];
+			_scene->mAnimations[_animation]->mChannels[i]->mScalingKeys = new aiVectorKey[numScaleKeys + 1];
+			_scene->mAnimations[_animation]->mChannels[i]->mRotationKeys = new aiQuatKey[numQuatKeys + 1];
 			// copy old array into new one
 			for (int j = 0; j < numPosKeys; j++)
 			{
-				_scene->mAnimations[0]->mChannels[i]->mPositionKeys[j] = posKeys[j];
+				_scene->mAnimations[_animation]->mChannels[i]->mPositionKeys[j] = posKeys[j];
 			}
 
 			// copy old array into new one
 			for (int j = 0; j < numPosKeys; j++)
 			{
-				_scene->mAnimations[0]->mChannels[i]->mScalingKeys[j] = scaleKeys[j];
+				_scene->mAnimations[_animation]->mChannels[i]->mScalingKeys[j] = scaleKeys[j];
 			}
 
 			// copy old array into new one
 			for (int j = 0; j < numPosKeys; j++)
 			{
-				_scene->mAnimations[0]->mChannels[i]->mRotationKeys[j] = quatKeys[j];
+				_scene->mAnimations[_animation]->mChannels[i]->mRotationKeys[j] = quatKeys[j];
 			}
 
-			_scene->mAnimations[0]->mChannels[i]->mPositionKeys[frame] = posKeyFrame;
-			_scene->mAnimations[0]->mChannels[i]->mScalingKeys[frame] = scaleKeyFrame;
-			_scene->mAnimations[0]->mChannels[i]->mRotationKeys[frame] = rotKeyFrame;
+			_scene->mAnimations[_animation]->mChannels[i]->mPositionKeys[frame] = posKeyFrame;
+			_scene->mAnimations[_animation]->mChannels[i]->mScalingKeys[frame] = scaleKeyFrame;
+			_scene->mAnimations[_animation]->mChannels[i]->mRotationKeys[frame] = rotKeyFrame;
 
 		}
 
-		_scene->mAnimations[0]->mDuration++;
+		printf("Anim Num: %d \n", _animation);
+		_scene->mAnimations[_animation]->mDuration++;
 	}
-	else if (frame <= numFrames)
+	else //if (frame <= numFrames) // ??
 	{
 		// Replacing an existing frame
 		for (glm::uint i = 0; i < _scene->mMeshes[0]->mNumBones; i++)
 		{
 			// store old arrays & sizes
-			int numPosKeys = _scene->mAnimations[0]->mChannels[i]->mNumPositionKeys;
-			aiVectorKey* posKeys = _scene->mAnimations[0]->mChannels[i]->mPositionKeys;
+			int numPosKeys = _scene->mAnimations[_animation]->mChannels[i]->mNumPositionKeys;
+			aiVectorKey* posKeys = _scene->mAnimations[_animation]->mChannels[i]->mPositionKeys;
 
-			int numScaleKeys = _scene->mAnimations[0]->mChannels[i]->mNumScalingKeys;
-			aiVectorKey* scaleKeys = _scene->mAnimations[0]->mChannels[i]->mScalingKeys;
+			int numScaleKeys = _scene->mAnimations[_animation]->mChannels[i]->mNumScalingKeys;
+			aiVectorKey* scaleKeys = _scene->mAnimations[_animation]->mChannels[i]->mScalingKeys;
 
-			int numQuatKeys = _scene->mAnimations[0]->mChannels[i]->mNumRotationKeys;
-			aiQuatKey* quatKeys = _scene->mAnimations[0]->mChannels[i]->mRotationKeys;
+			int numQuatKeys = _scene->mAnimations[_animation]->mChannels[i]->mNumRotationKeys;
+			aiQuatKey* quatKeys = _scene->mAnimations[_animation]->mChannels[i]->mRotationKeys;
 
-			std::string BoneName(customScene->mMeshes[0]->mBones[i]->mName.data);
+			std::string BoneName(_scene->mMeshes[0]->mBones[i]->mName.data);
 			printf("Current Bone: %s \n", BoneName);
 			aiVectorKey posKeyFrame;
 			posKeyFrame.mTime = frame;
@@ -1370,36 +1370,38 @@ void bMesh::InsertKeyFrame(glm::uint frame, const aiNode* pNode, aiScene* _scene
 			_rot = glm::conjugate(_rot);
 			rotKeyFrame.mValue = aiQuaternion(_rot.x, _rot.y, _rot.z, _rot.w);
 
-			_scene->mAnimations[0]->mChannels[i]->mNumPositionKeys = numPosKeys + 1;
-			_scene->mAnimations[0]->mChannels[i]->mNumScalingKeys = numScaleKeys + 1;
-			_scene->mAnimations[0]->mChannels[i]->mNumRotationKeys = numQuatKeys + 1;
+			_scene->mAnimations[_animation]->mChannels[i]->mNumPositionKeys = numPosKeys + 1;
+			_scene->mAnimations[_animation]->mChannels[i]->mNumScalingKeys = numScaleKeys + 1;
+			_scene->mAnimations[_animation]->mChannels[i]->mNumRotationKeys = numQuatKeys + 1;
 
-			_scene->mAnimations[0]->mChannels[i]->mPositionKeys = new aiVectorKey[numPosKeys + 1];
-			_scene->mAnimations[0]->mChannels[i]->mScalingKeys = new aiVectorKey[numScaleKeys + 1];
-			_scene->mAnimations[0]->mChannels[i]->mRotationKeys = new aiQuatKey[numQuatKeys + 1];
+			_scene->mAnimations[_animation]->mChannels[i]->mPositionKeys = new aiVectorKey[numPosKeys + 1];
+			_scene->mAnimations[_animation]->mChannels[i]->mScalingKeys = new aiVectorKey[numScaleKeys + 1];
+			_scene->mAnimations[_animation]->mChannels[i]->mRotationKeys = new aiQuatKey[numQuatKeys + 1];
 			// copy old array into new one
 			for (int j = 0; j < numPosKeys; j++)
 			{
-				_scene->mAnimations[0]->mChannels[i]->mPositionKeys[j] = posKeys[j];
+				_scene->mAnimations[_animation]->mChannels[i]->mPositionKeys[j] = posKeys[j];
 			}
 
 			// copy old array into new one
 			for (int j = 0; j < numPosKeys; j++)
 			{
-				_scene->mAnimations[0]->mChannels[i]->mScalingKeys[j] = scaleKeys[j];
+				_scene->mAnimations[_animation]->mChannels[i]->mScalingKeys[j] = scaleKeys[j];
 			}
 
 			// copy old array into new one
 			for (int j = 0; j < numPosKeys; j++)
 			{
-				_scene->mAnimations[0]->mChannels[i]->mRotationKeys[j] = quatKeys[j];
+				_scene->mAnimations[_animation]->mChannels[i]->mRotationKeys[j] = quatKeys[j];
 			}
 
-			_scene->mAnimations[0]->mChannels[i]->mPositionKeys[frame] = posKeyFrame;
-			_scene->mAnimations[0]->mChannels[i]->mScalingKeys[frame] = scaleKeyFrame;
-			_scene->mAnimations[0]->mChannels[i]->mRotationKeys[frame] = rotKeyFrame;
+			_scene->mAnimations[_animation]->mChannels[i]->mPositionKeys[frame] = posKeyFrame;
+			_scene->mAnimations[_animation]->mChannels[i]->mScalingKeys[frame] = scaleKeyFrame;
+			_scene->mAnimations[_animation]->mChannels[i]->mRotationKeys[frame] = rotKeyFrame;
 
 		}
+
+		//_scene->mAnimations[_animation]->mDuration++;
 	}
 
 }
@@ -1411,20 +1413,39 @@ void bMesh::InsertKeyFrame(glm::uint frame, const aiNode* pNode, aiScene* _scene
 void bMesh::CreateAnimation()
 {
 	// Create a new aiScene in memory
-	customScene = new aiScene();
-	customScene->mNumAnimations = 1;
-	customScene->mAnimations = new aiAnimation*[customScene->mNumAnimations];
-	// Create our initial blank animation at rest pose for 1 frame
-	aiAnimation* mAnimation = new aiAnimation();
+	int numAnimations;
 
+	if (this->m_pScene->HasAnimations())
+	{
+		numAnimations = this->m_pScene->mNumAnimations;
+	}
+	else
+	{
+		numAnimations = 0;
+	}
+
+	// incrementing the number of animations
+	const int NEW_MAX_ANIMATION_COUNT = numAnimations + 1;
+	
+	aiAnimation** newAnimations = new aiAnimation*[NEW_MAX_ANIMATION_COUNT];
+	// Create our initial blank animation at rest pose for 1 frame
+	aiAnimation* mNewAnimation = new aiAnimation();
+
+	// populate our array
+	for (int i = 0; i < this->m_pScene->mNumAnimations; i++)
+	{
+		newAnimations[i] = this->m_pScene->mAnimations[i];
+	}
+	
 	// Name it something generic
-	mAnimation->mName = std::string("new Animation");
+	mNewAnimation->mName = std::string("new Animation").append(std::to_string(NEW_MAX_ANIMATION_COUNT));
 	// Allocate memory for array of node animations
 	// Each bone/node has pos/rot/sca keys etc
 	aiNodeAnim** mAnims = new aiNodeAnim*[this->m_pScene->mMeshes[0]->mNumBones];
 
 	for (glm::uint i = 0; i < this->m_pScene->mMeshes[0]->mNumBones; i++)
 	{
+		printf("Value of MAX: %d \n", NEW_MAX_ANIMATION_COUNT);
 		std::string BoneName(this->m_pScene->mMeshes[0]->mBones[i]->mName.data);
 		mAnims[i] = new aiNodeAnim();
 		mAnims[i]->mNodeName = BoneName;
@@ -1433,34 +1454,24 @@ void bMesh::CreateAnimation()
 		mAnims[i]->mNumScalingKeys = 0;		
 	}
 
-	mAnimation->mChannels = new aiNodeAnim*[this->m_pScene->mMeshes[0]->mNumBones];
-	mAnimation->mChannels = mAnims;
-	mAnimation->mNumChannels = this->m_pScene->mMeshes[0]->mNumBones;
-	mAnimation->mDuration = 0;
-	
-	customScene->mAnimations[0] = mAnimation;
-	customScene->mNumMeshes = 1;
-	aiMesh* _mesh = new aiMesh(*this->m_pScene->mMeshes[0]);
-	customScene->mMeshes = new aiMesh*[1];
-	customScene->mMeshes[0] = _mesh;
-	aiNode* root = new aiNode(*this->m_pScene->mRootNode);
-	customScene->mRootNode = root;
+	mNewAnimation->mChannels = new aiNodeAnim*[this->m_pScene->mMeshes[0]->mNumBones];
+	mNewAnimation->mChannels = mAnims;
+	mNewAnimation->mNumChannels = this->m_pScene->mMeshes[0]->mNumBones;
+	mNewAnimation->mDuration = 0;
 
-
-	printf("Created new animation %s \n", std::string(mAnimation->mName.data));
-	for (int i = 0; i < mAnimation->mNumChannels; i++)
+	printf("Created new animation %s \n", std::string(mNewAnimation->mName.data));
+	for (int i = 0; i < mNewAnimation->mNumChannels; i++)
 	{
-		printf("Created new animation node for bone: %s \n", std::string(mAnimation->mChannels[i]->mNodeName.data));
+		printf("Created new animation node for bone: %s \n", std::string(mNewAnimation->mChannels[i]->mNodeName.data));
 	}
 
 	
+	newAnimations[NEW_MAX_ANIMATION_COUNT - 1] = mNewAnimation;
+	this->m_pScene->mAnimations = newAnimations;
+	this->m_pScene->mNumAnimations = NEW_MAX_ANIMATION_COUNT;
 	// Insert rest/default pose as first key frame
-	InsertKeyFrame(0, this->getScene()->mRootNode, customScene);
-	
+	InsertKeyFrame(0, numAnimations, this->m_pScene->mRootNode, this->m_pScene);		
 	printf("Done... \n");
-
-
-	//std::cin.get();
 }
 
 void bMesh::FindLocalPosition(const std::string BoneToFind, const aiNode* pNode, const glm::mat4& ParentTransform, glm::vec3& _pos)
@@ -1541,12 +1552,13 @@ void bMesh::FindLocalScale(const std::string BoneToFind, const aiNode* pNode, co
 	}
 }
 
-void bMesh::BoneTransformAtFrame(float frame, std::vector<glm::mat4>& Transforms, aiScene* _scene)
+void bMesh::BoneTransformAtFrame(float frame, std::vector<glm::mat4>& Transforms, aiScene* _scene,
+	int _anim)
 {
 	glm::mat4 Identity = glm::mat4(1.0f);
 	if (_scene->HasAnimations())
 	{
-		ReadNodeHeirarchyAtFrame(frame, _scene->mRootNode, Identity, _scene);
+		ReadNodeHeirarchyAtFrame(frame, _scene->mRootNode, Identity, _scene, _anim);
 		Transforms.clear();
 		Transforms.resize(m_NumBones);
 
@@ -1561,10 +1573,10 @@ void bMesh::BoneTransformAtFrame(float frame, std::vector<glm::mat4>& Transforms
 }
 
 void bMesh::ReadNodeHeirarchyAtFrame(float frame, const aiNode* pNode, 
-	const glm::mat4& ParentTransform, aiScene* _scene)
+	const glm::mat4& ParentTransform, aiScene* _scene, int _anim)
 {
 	std::string NodeName(pNode->mName.data);
-	const aiAnimation* pAnimation = _scene->mAnimations[0];
+	const aiAnimation* pAnimation = _scene->mAnimations[_anim];
 	glm::mat4 NodeTransformation = glm::mat4();
 	CopyaiMat(&pNode->mTransformation, NodeTransformation);
 	const aiNodeAnim* pNodeAnim = FindNodeAnim(pAnimation, NodeName);
@@ -1605,7 +1617,148 @@ void bMesh::ReadNodeHeirarchyAtFrame(float frame, const aiNode* pNode,
 	}
 
 	for (glm::uint i = 0; i < pNode->mNumChildren; i++) {
-		ReadNodeHeirarchyAtFrame(frame, pNode->mChildren[i], GlobalTransformation, _scene);
+		ReadNodeHeirarchyAtFrame(frame, pNode->mChildren[i], GlobalTransformation, _scene, _anim);
+	}
+}
+
+void bMesh::KinectBoneTransformAtFrame(int frame, std::vector<glm::mat4>& Transforms, aiScene* _scene, 
+	int _animationToInsertInto)
+{
+	glm::mat4 Identity = glm::mat4(1.0f);
+	int duration = _scene->mAnimations[_animationToInsertInto]->mDuration;
+	if (frame >= duration)
+	{
+		InsertKeyFrame(frame, _animationToInsertInto, _scene->mRootNode, _scene);
+	}
+
+	if (_scene->HasAnimations())
+	{
+		KinectReadNodeHeirarchyAtFrame(frame, _scene->mRootNode, Identity, _scene, _animationToInsertInto);
+		Transforms.clear();
+		Transforms.resize(m_NumBones);
+
+		for (glm::uint i = 0; i < m_NumBones; i++) {
+			Transforms[i] = m_BoneInfo[i].FinalTransformation;
+		}
+	}
+	else
+	{
+		printf("Error, no animations present.");
+	}
+}
+
+void bMesh::KinectReadNodeHeirarchyAtFrame(int frame, const aiNode* pNode,
+	const glm::mat4& ParentTransform, aiScene* _scene, int _animationToInsertInto)
+{
+	std::string NodeName(pNode->mName.data);
+	glm::mat4 NodeTransformation = glm::mat4();
+	CopyaiMat(&pNode->mTransformation, NodeTransformation);
+	std::string BoneName(pNode->mName.data);
+	const aiNodeAnim* _BoneAnimNode = FindNodeAnim(_scene->mAnimations[_animationToInsertInto], BoneName);
+	glm::mat4 GlobalTransformation;
+
+	std::vector<std::string>::iterator it;
+	it = std::find(m_mask.begin(), m_mask.end(), NodeName);
+	if (it != m_mask.end())
+	{	
+		glm::mat4 GlobalKinectRotation = glm::mat4(1.0);
+		glm::quat _rotation = m_JointNameOrientations[NodeName].m_orientation;
+		glm::quat parentRotation;
+		glm::vec3 _pos;
+		GlobalKinectRotation = glm::toMat4(_rotation);
+		glm::decompose(NodeTransformation, glm::vec3(1.0), glm::quat(), _pos, glm::vec3(1.0), glm::vec4(1.0));
+		glm::decompose(ParentTransform, glm::vec3(1.0), parentRotation, glm::vec3(1.0), glm::vec3(1.0), glm::vec4(1.0));
+		glm::mat4 LocalRotation = glm::toMat4(glm::inverse(glm::conjugate(parentRotation))) * GlobalKinectRotation;
+		NodeTransformation = glm::translate(_pos) * LocalRotation;
+		GlobalTransformation = ParentTransform * NodeTransformation;
+		
+	}
+	else
+	{
+		GlobalTransformation = ParentTransform * NodeTransformation;
+	}
+
+	
+	if (m_BoneMapping.find(NodeName) != m_BoneMapping.end()) {
+		glm::uint BoneIndex = m_BoneMapping[NodeName];
+		m_BoneInfo[BoneIndex].FinalTransformation = m_GlobalInverseTransform * GlobalTransformation * m_BoneInfo[BoneIndex].BoneOffset;
+
+		// Insert new keyframe
+		glm::quat globalRot;
+		glm::vec3 globalPos;
+		glm::vec3 globalScale;
+		glm::decompose(NodeTransformation, globalScale, globalRot, globalPos, glm::vec3(1.0), glm::vec4(1.0));
+		globalRot = glm::conjugate(globalRot);
+		_BoneAnimNode->mRotationKeys[frame].mValue = aiQuaternion(globalRot.w, globalRot.x, globalRot.y, globalRot.z);
+		_BoneAnimNode->mPositionKeys[frame].mValue = aiVector3D(globalPos.x, globalPos.y, globalPos.z);
+		_BoneAnimNode->mScalingKeys[frame].mValue = aiVector3D(globalScale.x, globalScale.y, globalScale.z);
+
+	}
+
+	for (glm::uint i = 0; i < pNode->mNumChildren; i++) {
+		KinectReadNodeHeirarchyAtFrame(frame, pNode->mChildren[i], GlobalTransformation, _scene, _animationToInsertInto);
+	}
+}
+
+void bMesh::KinectBoneTransform(std::vector<glm::mat4>& Transforms, aiScene* _scene)
+{
+	glm::mat4 Identity = glm::mat4(1.0f);
+	if (_scene->HasAnimations())
+	{
+		KinectReadNodeHeirarchy(_scene->mRootNode, Identity, _scene);
+		Transforms.clear();
+		Transforms.resize(m_NumBones);
+
+		for (glm::uint i = 0; i < m_NumBones; i++) {
+			Transforms[i] = m_BoneInfo[i].FinalTransformation;
+		}
+	}
+	else
+	{
+		printf("Error, no animations present.");
+	}
+}
+
+void bMesh::KinectReadNodeHeirarchy(const aiNode* pNode,
+	const glm::mat4& ParentTransform, aiScene* _scene)
+{
+	std::string NodeName(pNode->mName.data);
+	glm::mat4 NodeTransformation = glm::mat4();
+	CopyaiMat(&pNode->mTransformation, NodeTransformation);
+	std::string BoneName(pNode->mName.data);
+
+	glm::mat4 GlobalTransformation;
+
+	std::vector<std::string>::iterator it;
+	it = std::find(m_mask.begin(), m_mask.end(), NodeName);
+	if (it != m_mask.end())
+	{
+		//printf("Mapping Kinect Joint to: %s \n", NodeName.c_str());
+		glm::mat4 GlobalKinectRotation = glm::mat4(1.0);
+		glm::quat _rotation = m_JointNameOrientations[NodeName].m_orientation;
+		glm::quat parentRotation;
+		glm::vec3 _pos;
+		GlobalKinectRotation = glm::toMat4(_rotation);
+		glm::decompose(NodeTransformation, glm::vec3(1.0), glm::quat(), _pos, glm::vec3(1.0), glm::vec4(1.0));
+		glm::decompose(ParentTransform, glm::vec3(1.0), parentRotation, glm::vec3(1.0), glm::vec3(1.0), glm::vec4(1.0));
+		glm::mat4 LocalRotation = glm::toMat4(glm::inverse(glm::conjugate(parentRotation))) * GlobalKinectRotation;
+		NodeTransformation = glm::translate(_pos) * LocalRotation;
+		GlobalTransformation = ParentTransform * NodeTransformation;
+
+	}
+	else
+	{
+		GlobalTransformation = ParentTransform * NodeTransformation;
+	}
+
+
+	if (m_BoneMapping.find(NodeName) != m_BoneMapping.end()) {
+		glm::uint BoneIndex = m_BoneMapping[NodeName];
+		m_BoneInfo[BoneIndex].FinalTransformation = m_GlobalInverseTransform * GlobalTransformation * m_BoneInfo[BoneIndex].BoneOffset;
+	}
+
+	for (glm::uint i = 0; i < pNode->mNumChildren; i++) {
+		KinectReadNodeHeirarchy(pNode->mChildren[i], GlobalTransformation, _scene);
 	}
 }
 

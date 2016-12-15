@@ -240,7 +240,25 @@ bool BlayneKinect::KinectInit()
 	hr = bodyFrameSource->OpenReader(&m_bodyFrameReader);
 	//We're done with bodyFrameSource, so we'll release it
 	SafeRelease(bodyFrameSource);
+	/*
+	IHighDefinitionFaceFrameSource *faceFrameSource = nullptr;
+	FaceFrameFeatures faceframefeats = FaceFrameFeatures::FaceFrameFeatures_RotationOrientation;
+	//hr = CreateFaceFrameSource(m_sensor, 0, faceframefeats, &faceFrameSource);
+	hr = CreateHighDefinitionFaceFrameSource(m_sensor, &faceFrameSource);
+	if (FAILED(hr))
+	{
+		printf("Failed to get_faceFrameSource! \n");
+		exit(10);
+	}
 
+	hr = faceFrameSource->OpenReader(&m_hdFaceFrameReader);
+	if (FAILED(hr))
+	{
+		printf("Failed to get m_faceFrameReader! \n");
+		exit(10);
+	}
+	SafeRelease(faceFrameSource);
+	*/
 	return true;
 }
 
@@ -489,36 +507,53 @@ void BlayneKinect::processMaskedBodies(const unsigned int &bodyCount, IBody **bo
 			return;
 		}
 
+		HandState leftHandState = HandState_Unknown;
+		HandState rightHandState = HandState_Unknown;
+
+		body->get_HandLeftState(&leftHandState);
+		body->get_HandRightState(&rightHandState);
+
+		if ((leftHandState == HandState_Closed &&
+			rightHandState == HandState_Closed) && 
+			(previousLeftHandState == HandState_Open &&
+			previousRightHandState == HandState_Open))
+		{
+			this->isBothHandsClosed = true;
+		}
+		else
+		{
+			this->isBothHandsClosed = false;
+		}
+
+		previousLeftHandState = leftHandState;
+		previousRightHandState = rightHandState;
 
 		hr = body->GetJoints(_countof(joints), joints);
 		if (SUCCEEDED(hr)) {
 			ifIsBeingTracked = true;
 			// With the given joints find the rotations stored as quaternions
-			for (int i = 0; i < m_boneNameJointOrientations.size(); i++)
+			for (std::map<std::string, Blayne_Types::Blayne_JointOrientations>::iterator it =
+				m_JointNameOrientations.begin(); it != m_JointNameOrientations.end(); ++it)
 			{
-				glm::quat myJointQuaternion = glm::quat(
-					jointRotations[m_boneNameJointOrientations[i].m_boneNameJoint.second].Orientation.w,
-					jointRotations[m_boneNameJointOrientations[i].m_boneNameJoint.second].Orientation.x,
-					jointRotations[m_boneNameJointOrientations[i].m_boneNameJoint.second].Orientation.y,
-					jointRotations[m_boneNameJointOrientations[i].m_boneNameJoint.second].Orientation.z);
+				glm::quat myJointQuaternion;
+				myJointQuaternion.w = jointRotations[it->second.m_jointType].Orientation.w;
+				myJointQuaternion.x = jointRotations[it->second.m_jointType].Orientation.x;
+				myJointQuaternion.y = jointRotations[it->second.m_jointType].Orientation.y;
+				myJointQuaternion.z = jointRotations[it->second.m_jointType].Orientation.z;
 
-				// assign the found quaternion to our mapping.
-				m_boneNameJointOrientations[i].m_orientation = myJointQuaternion;
-				m_boneNameJointOrientations[i].m_jointPosition = 
-					glm::vec3(joints[m_boneNameJointOrientations[i].m_boneNameJoint.second].Position.X,
-						joints[m_boneNameJointOrientations[i].m_boneNameJoint.second].Position.Y,
-						joints[m_boneNameJointOrientations[i].m_boneNameJoint.second].Position.Z);
+				it->second.m_orientation = myJointQuaternion;
+
 			}
 		}
 	}
 
 	if (ifIsBeingTracked)
 	{
-		printf("Tracking bodies \n");
+		//printf("Tracking bodies \n");
 	}
 	else
 	{
-		printf("No bodies are being tracked.... \n");
+		//printf("No bodies are being tracked.... \n");
 	}
 }
 
@@ -688,68 +723,81 @@ void BlayneKinect::DrawCircle(int cx, int cy, int radius,
 	}
 }
 
+void BlayneKinect::setBoneNameJointOrientations()
+{
+	Blayne_Types::Blayne_JointOrientations UpperArm_L;
+	UpperArm_L.m_jointType = JointType_ElbowLeft;
+	m_JointNameOrientations.insert( std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Upper Arm.L", UpperArm_L) );
+	Blayne_Types::Blayne_JointOrientations LowerArm_L;
+	LowerArm_L.m_jointType = JointType_WristLeft;
+	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Lower Arm.L", LowerArm_L));
+
+	Blayne_Types::Blayne_JointOrientations UpperArm_R;
+	UpperArm_R.m_jointType = JointType_ElbowRight;
+	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Upper Arm.R", UpperArm_R));
+	Blayne_Types::Blayne_JointOrientations LowerArm_R;
+	LowerArm_R.m_jointType = JointType_WristRight;
+	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Lower Arm.R", LowerArm_R));
+
+	Blayne_Types::Blayne_JointOrientations Hip_L;
+	Hip_L.m_jointType = JointType_KneeLeft;
+	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Upper Leg.L", Hip_L));
+	Blayne_Types::Blayne_JointOrientations Knee_L;
+	Knee_L.m_jointType = JointType_AnkleLeft;
+	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Lower Leg.L", Knee_L));
+
+	Blayne_Types::Blayne_JointOrientations Hip_R;
+	Hip_R.m_jointType = JointType_KneeRight;
+	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Upper Leg.R", Hip_R));
+	Blayne_Types::Blayne_JointOrientations Knee_R;
+	Knee_R.m_jointType = JointType_AnkleRight;
+	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Lower Leg.R", Knee_R));
+
+	Blayne_Types::Blayne_JointOrientations Foot_L;
+	Foot_L.m_jointType = JointType_FootLeft;
+	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Foot.L", Foot_L));
+
+	Blayne_Types::Blayne_JointOrientations Foot_R;
+	Foot_R.m_jointType = JointType_FootRight;
+	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Foot.R", Foot_R));
+
+	Blayne_Types::Blayne_JointOrientations Head;
+	Head.m_jointType = JointType_Head;
+	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Head", Head));
+	
+	Blayne_Types::Blayne_JointOrientations Hand_L;
+	Hand_L.m_jointType = JointType_HandLeft;
+	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Hand.L", Hand_L));
+	Blayne_Types::Blayne_JointOrientations Hand_R;
+	Hand_R.m_jointType = JointType_HandRight;
+	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Hand.R", Hand_R));
+
+	Blayne_Types::Blayne_JointOrientations Spine;
+	Spine.m_jointType = JointType_SpineShoulder;
+	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Spine", Spine));
+
+	Blayne_Types::Blayne_JointOrientations Hips;
+	Hips.m_jointType = JointType_SpineMid;
+	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Hip", Hips));
+}
+
 void BlayneKinect::setMask()
 {
-	// By default, lets test this with only a few joints.
-	// From our "Dave" model by Sebastian Lague we are only
-	// Interested in:
-	// Upper Arm.L - JointType_ElbowLeft
-	// Upper Arm.R - JointType_ElbowRight
-	// Lower Arm.L - JointType_ShoulderLeft
-	// Lower Arm.R - JointType_ShoulderRight
-	//m_jointMask.push_back(JointType_ElbowLeft);
-	//m_jointMask.push_back(JointType_ElbowRight);
-	//m_jointMask.push_back(JointType_ShoulderLeft);
-	//m_jointMask.push_back(JointType_ShoulderRight);
-
-
-	
-	//m_jointBoneMask.push_back(std::make_pair("Upper Arm.L", JointType_ShoulderLeft));
-	//m_jointBoneMask.push_back(std::make_pair("Upper Arm.R", JointType_ShoulderRight));
-	//m_jointBoneMask.push_back(std::make_pair("Lower Arm.L", JointType_ElbowLeft));
-	//m_jointBoneMask.push_back(std::make_pair("Lower Arm.R", JointType_ElbowRight));
-	// For four joints to convert to bones and get their orientations.
-	// Fuck it
-	Blayne_Types::BoneNameJointOrientations Head;
-	Head.m_boneNameJoint = std::make_pair("Head", JointType_Head);
-	Blayne_Types::BoneNameJointOrientations Neck;
-	Neck.m_boneNameJoint = std::make_pair("Head", JointType_Neck);
-	Blayne_Types::BoneNameJointOrientations UpperArmL;
-	UpperArmL.m_boneNameJoint = std::make_pair("Upper Arm.L", JointType_ShoulderLeft);
-	Blayne_Types::BoneNameJointOrientations UpperArmR;
-	UpperArmR.m_boneNameJoint = std::make_pair("Upper Arm.R", JointType_ShoulderRight);
-	Blayne_Types::BoneNameJointOrientations LowerArmL;
-	LowerArmL.m_boneNameJoint = std::make_pair("Lower Arm.L", JointType_ElbowLeft);
-	Blayne_Types::BoneNameJointOrientations LowerArmR;
-	LowerArmR.m_boneNameJoint = std::make_pair("Lower Arm.R", JointType_ElbowRight);
-	Blayne_Types::BoneNameJointOrientations WristLeft;
-	WristLeft.m_boneNameJoint = std::make_pair("Hand.L", JointType_WristLeft);
-	Blayne_Types::BoneNameJointOrientations WristRight;
-	WristRight.m_boneNameJoint = std::make_pair("Hand.R", JointType_WristRight);
-	Blayne_Types::BoneNameJointOrientations SpineShoulder;
-	SpineShoulder.m_boneNameJoint = std::make_pair("Chest", JointType_SpineShoulder);
-
-	Blayne_Types::BoneNameJointOrientations SpineBase;
-	SpineBase.m_boneNameJoint = std::make_pair("Torso", JointType_SpineBase);
-	Blayne_Types::BoneNameJointOrientations SpineMid;
-	SpineMid.m_boneNameJoint = std::make_pair("null", JointType_SpineMid);
-
-	m_boneNameJointOrientations.push_back(SpineBase);
-	m_boneNameJointOrientations.push_back(SpineMid);
-	m_boneNameJointOrientations.push_back(SpineShoulder);
-	// in order of heirarchy
-	m_boneNameJointOrientations.push_back(UpperArmL);
-	m_boneNameJointOrientations.push_back(LowerArmL);
-	m_boneNameJointOrientations.push_back(WristLeft);
-
-	m_boneNameJointOrientations.push_back(UpperArmR);	
-	m_boneNameJointOrientations.push_back(LowerArmR);
-	m_boneNameJointOrientations.push_back(WristRight);
-
-	m_boneNameJointOrientations.push_back(Head);
-	m_boneNameJointOrientations.push_back(Neck);	
-	
-
+	m_MaskBonesForKinect.push_back("Upper Arm.L");
+	m_MaskBonesForKinect.push_back("Lower Arm.L");
+	m_MaskBonesForKinect.push_back("Upper Arm.R");
+	m_MaskBonesForKinect.push_back("Lower Arm.R");
+	m_MaskBonesForKinect.push_back("Lower Leg.R");
+	m_MaskBonesForKinect.push_back("Lower Leg.L");
+	m_MaskBonesForKinect.push_back("Upper Leg.R");
+	m_MaskBonesForKinect.push_back("Upper Leg.L");
+	m_MaskBonesForKinect.push_back("Foot.L");
+	m_MaskBonesForKinect.push_back("Foot.R");
+	m_MaskBonesForKinect.push_back("Head");
+	m_MaskBonesForKinect.push_back("Hand.L");
+	m_MaskBonesForKinect.push_back("Hand.R");
+	m_MaskBonesForKinect.push_back("Hip");
+	m_MaskBonesForKinect.push_back("Spine");
 }
 
 void BlayneKinect::DrawJoints()

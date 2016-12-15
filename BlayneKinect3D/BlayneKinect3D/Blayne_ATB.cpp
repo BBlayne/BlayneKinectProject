@@ -44,6 +44,7 @@ bool Blayne_ATB::Init()
 		ret = true;
 	}
 
+	
 	return ret;
 }
 

@@ -18,6 +18,9 @@ public:
 	void RenderSceneCB();
 
 	bool MouseCB(BLAYNE_MOUSE Button, BLAYNE_KEY_STATE State, int x, int y);
+
+private:
+
 };
 
 extern TwType TW_TYPE_BLAYNE_VECTOR3F;
