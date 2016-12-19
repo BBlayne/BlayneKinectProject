@@ -34,7 +34,7 @@ namespace Blayne_Types {
 
 	struct BoneNameJointOrientations
 	{
-		std::pair<std::string, JointType> m_boneNameJoint;
+		std::pair<const std::string, JointType> m_boneNameJoint;
 		glm::quat m_orientation;
 		glm::vec3 m_jointPosition;
 	};

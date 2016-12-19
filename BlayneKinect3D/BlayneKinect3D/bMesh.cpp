@@ -2,6 +2,7 @@
 #include "Blayne_3D_Math.h"
 
 #include <algorithm>
+#include <exception>
 
 bMesh::bMesh() : ID(currID++)
 {
@@ -803,7 +804,7 @@ glm::uint bMesh::FindScaling(float AnimationTime, const aiNodeAnim* pNodeAnim)
 	assert(pNodeAnim->mNumScalingKeys > 0);
 
 	for (glm::uint i = 0; i < pNodeAnim->mNumScalingKeys - 1; i++) {
-		if (AnimationTime < (float)pNodeAnim->mScalingKeys[i + 1].mTime) {
+		if (AnimationTime <= (float)pNodeAnim->mScalingKeys[i + 1].mTime) {
 			return i;
 		}
 	}
@@ -818,7 +819,7 @@ glm::uint bMesh::FindRotation(float AnimationTime, const aiNodeAnim* pNodeAnim)
 	assert(pNodeAnim->mNumRotationKeys > 0);
 
 	for (glm::uint i = 0; i < pNodeAnim->mNumRotationKeys - 1; i++) {
-		if (AnimationTime < (float)pNodeAnim->mRotationKeys[i + 1].mTime) {
+		if (AnimationTime <= (float)pNodeAnim->mRotationKeys[i + 1].mTime) {
 			return i;
 		}
 	}
@@ -830,7 +831,7 @@ glm::uint bMesh::FindRotation(float AnimationTime, const aiNodeAnim* pNodeAnim)
 glm::uint bMesh::FindPosition(float AnimationTime, const aiNodeAnim* pNodeAnim)
 {
 	for (glm::uint i = 0; i < pNodeAnim->mNumPositionKeys - 1; i++) {
-		if (AnimationTime < (float)pNodeAnim->mPositionKeys[i + 1].mTime) {
+		if (AnimationTime <= (float)pNodeAnim->mPositionKeys[i + 1].mTime) {
 			return i;
 		}
 	}
@@ -1204,11 +1205,6 @@ void bMesh::ReadNodeHeirarchySimplified(const aiNode* pNode, const glm::mat4& Pa
 	}
 }
 
-void bMesh::UpdateSkeletonAtFrame(int frame, const aiMesh* pMesh)
-{
-
-}
-
 void bMesh::UpdateSkeleton(const aiMesh* pMesh)
 {
 
@@ -1252,158 +1248,120 @@ void bMesh::UpdateSkeleton(const aiMesh* pMesh)
 	}
 }
 
-void AddKeyFrame()
+void bMesh::InsertKeyFrame(glm::uint frame, int _animation, const aiNode* p_rootNode, aiScene* _scene)
 {
-
-}
-
-void bMesh::InsertKeyFrame(glm::uint frame, int _animation, const aiNode* pNode, aiScene* _scene)
-{
-
+	// Get the duration of the animation
 	int numFrames = _scene->mAnimations[_animation]->mDuration;
+	// frame is the "time"-frame we are inserting a new keyframe.
+	// Either we are placing an existing keyframe, namely,
+	// mTime == frame
+	// Or we are inserting an entirely new frame, mTime != frame
+
 	printf("Inserting Key Frame to %s \n", _scene->mAnimations[_animation]->mName.C_Str());
 
-	// Need to handle situation where user is a dumb dumb and adds more than 1 frame at a time...?
-	if (frame >= numFrames || numFrames == 0)
-	{
-		// creating our first frame or adding a frame
-		for (glm::uint i = 0; i < _scene->mMeshes[0]->mNumBones; i++)
-		{
-			// store old arrays & sizes
-			int numPosKeys = _scene->mAnimations[_animation]->mChannels[i]->mNumPositionKeys;
-			aiVectorKey* posKeys = _scene->mAnimations[_animation]->mChannels[i]->mPositionKeys;
-
-			int numScaleKeys = _scene->mAnimations[_animation]->mChannels[i]->mNumScalingKeys;
-			aiVectorKey* scaleKeys = _scene->mAnimations[_animation]->mChannels[i]->mScalingKeys;
-
-			int numQuatKeys = _scene->mAnimations[_animation]->mChannels[i]->mNumRotationKeys;
-			aiQuatKey* quatKeys = _scene->mAnimations[_animation]->mChannels[i]->mRotationKeys;
-
-			std::string BoneName(_scene->mMeshes[0]->mBones[i]->mName.data);
-			printf("Current Bone: %s \n", BoneName);
-			aiVectorKey posKeyFrame;
-			posKeyFrame.mTime = frame;
-			glm::vec3 _pos = glm::vec3(1.0);
-			FindLocalPosition(BoneName, pNode, glm::mat4(1.0), _pos);
-			posKeyFrame.mValue = aiVector3D(_pos.x, _pos.y, _pos.z);
-
-			aiVectorKey scaleKeyFrame;
-			scaleKeyFrame.mTime = frame;
-			glm::vec3 _scale = glm::vec3(1.0);
-			FindLocalScale(BoneName, pNode, glm::mat4(1.0), _scale);
-			scaleKeyFrame.mValue = aiVector3D(_scale.x, _scale.y, _scale.z);
-
-			aiQuatKey rotKeyFrame;
-			rotKeyFrame.mTime = frame;
-			glm::quat _rot = glm::quat();
-			FindLocalRotation(BoneName, pNode, glm::mat4(1.0), _rot);
-			_rot = glm::conjugate(_rot);
-			rotKeyFrame.mValue = aiQuaternion(_rot.x, _rot.y, _rot.z, _rot.w);
-
-			_scene->mAnimations[_animation]->mChannels[i]->mNumPositionKeys = numPosKeys + 1;
-			_scene->mAnimations[_animation]->mChannels[i]->mNumScalingKeys = numScaleKeys + 1;
-			_scene->mAnimations[_animation]->mChannels[i]->mNumRotationKeys = numQuatKeys + 1;
-
-			_scene->mAnimations[_animation]->mChannels[i]->mPositionKeys = new aiVectorKey[numPosKeys + 1];
-			_scene->mAnimations[_animation]->mChannels[i]->mScalingKeys = new aiVectorKey[numScaleKeys + 1];
-			_scene->mAnimations[_animation]->mChannels[i]->mRotationKeys = new aiQuatKey[numQuatKeys + 1];
-			// copy old array into new one
-			for (int j = 0; j < numPosKeys; j++)
-			{
-				_scene->mAnimations[_animation]->mChannels[i]->mPositionKeys[j] = posKeys[j];
-			}
-
-			// copy old array into new one
-			for (int j = 0; j < numPosKeys; j++)
-			{
-				_scene->mAnimations[_animation]->mChannels[i]->mScalingKeys[j] = scaleKeys[j];
-			}
-
-			// copy old array into new one
-			for (int j = 0; j < numPosKeys; j++)
-			{
-				_scene->mAnimations[_animation]->mChannels[i]->mRotationKeys[j] = quatKeys[j];
-			}
-
-			_scene->mAnimations[_animation]->mChannels[i]->mPositionKeys[frame] = posKeyFrame;
-			_scene->mAnimations[_animation]->mChannels[i]->mScalingKeys[frame] = scaleKeyFrame;
-			_scene->mAnimations[_animation]->mChannels[i]->mRotationKeys[frame] = rotKeyFrame;
-
-		}
-
-		printf("Anim Num: %d \n", _animation);
+	// If the inserted frame is at time > the duration, increase duration
+	// Should be gauranteed.
+	if (frame > numFrames || frame == 0)
 		_scene->mAnimations[_animation]->mDuration++;
-	}
-	else //if (frame <= numFrames) // ??
+
+	// Iterate over each animation node
+	for (glm::uint i = 0; i < _scene->mAnimations[_animation]->mNumChannels; i++)
 	{
-		// Replacing an existing frame
-		for (glm::uint i = 0; i < _scene->mMeshes[0]->mNumBones; i++)
+		
+		std::string BoneName(_scene->mAnimations[_animation]->mChannels[i]->mNodeName.data);
+		// Skip past our non-deform bones
+		if (m_BoneMapping.find(BoneName) == m_BoneMapping.end())
 		{
-			// store old arrays & sizes
-			int numPosKeys = _scene->mAnimations[_animation]->mChannels[i]->mNumPositionKeys;
-			aiVectorKey* posKeys = _scene->mAnimations[_animation]->mChannels[i]->mPositionKeys;
-
-			int numScaleKeys = _scene->mAnimations[_animation]->mChannels[i]->mNumScalingKeys;
-			aiVectorKey* scaleKeys = _scene->mAnimations[_animation]->mChannels[i]->mScalingKeys;
-
-			int numQuatKeys = _scene->mAnimations[_animation]->mChannels[i]->mNumRotationKeys;
-			aiQuatKey* quatKeys = _scene->mAnimations[_animation]->mChannels[i]->mRotationKeys;
-
-			std::string BoneName(_scene->mMeshes[0]->mBones[i]->mName.data);
-			printf("Current Bone: %s \n", BoneName);
-			aiVectorKey posKeyFrame;
-			posKeyFrame.mTime = frame;
-			glm::vec3 _pos = glm::vec3(1.0);
-			FindLocalPosition(BoneName, pNode, glm::mat4(1.0), _pos);
-			posKeyFrame.mValue = aiVector3D(_pos.x, _pos.y, _pos.z);
-
-			aiVectorKey scaleKeyFrame;
-			scaleKeyFrame.mTime = frame;
-			glm::vec3 _scale = glm::vec3(1.0);
-			FindLocalScale(BoneName, pNode, glm::mat4(1.0), _scale);
-			scaleKeyFrame.mValue = aiVector3D(_scale.x, _scale.y, _scale.z);
-
-			aiQuatKey rotKeyFrame;
-			rotKeyFrame.mTime = frame;
-			glm::quat _rot = glm::quat();
-			FindLocalRotation(BoneName, pNode, glm::mat4(1.0), _rot);
-			_rot = glm::conjugate(_rot);
-			rotKeyFrame.mValue = aiQuaternion(_rot.x, _rot.y, _rot.z, _rot.w);
-
-			_scene->mAnimations[_animation]->mChannels[i]->mNumPositionKeys = numPosKeys + 1;
-			_scene->mAnimations[_animation]->mChannels[i]->mNumScalingKeys = numScaleKeys + 1;
-			_scene->mAnimations[_animation]->mChannels[i]->mNumRotationKeys = numQuatKeys + 1;
-
-			_scene->mAnimations[_animation]->mChannels[i]->mPositionKeys = new aiVectorKey[numPosKeys + 1];
-			_scene->mAnimations[_animation]->mChannels[i]->mScalingKeys = new aiVectorKey[numScaleKeys + 1];
-			_scene->mAnimations[_animation]->mChannels[i]->mRotationKeys = new aiQuatKey[numQuatKeys + 1];
-			// copy old array into new one
-			for (int j = 0; j < numPosKeys; j++)
-			{
-				_scene->mAnimations[_animation]->mChannels[i]->mPositionKeys[j] = posKeys[j];
-			}
-
-			// copy old array into new one
-			for (int j = 0; j < numPosKeys; j++)
-			{
-				_scene->mAnimations[_animation]->mChannels[i]->mScalingKeys[j] = scaleKeys[j];
-			}
-
-			// copy old array into new one
-			for (int j = 0; j < numPosKeys; j++)
-			{
-				_scene->mAnimations[_animation]->mChannels[i]->mRotationKeys[j] = quatKeys[j];
-			}
-
-			_scene->mAnimations[_animation]->mChannels[i]->mPositionKeys[frame] = posKeyFrame;
-			_scene->mAnimations[_animation]->mChannels[i]->mScalingKeys[frame] = scaleKeyFrame;
-			_scene->mAnimations[_animation]->mChannels[i]->mRotationKeys[frame] = rotKeyFrame;
-
+			printf("Skipping %s\n", BoneName);
+			continue;
 		}
 
-		//_scene->mAnimations[_animation]->mDuration++;
-	}
+		aiNodeAnim* _AnimBone = _scene->mAnimations[_animation]->mChannels[i];
 
+		// Position Keys
+		int m_keyframe = -1;
+		for (glm::uint j = 0; j < _AnimBone->mNumPositionKeys; j++) {
+			if (frame == (int)_AnimBone->mPositionKeys[j].mTime) {
+				// We found a keyframe that matches, we can replace it.
+				m_keyframe = j;
+				break;
+			}
+		}
+
+		if (m_keyframe == -1)
+		{
+			// Creating new entry.
+			// Copy mPositionKeys to Vector for easy insertion
+			std::vector<aiVectorKey> m_PositionKeys(_AnimBone->mPositionKeys, 
+				_AnimBone->mPositionKeys + _AnimBone->mNumPositionKeys);
+
+			aiVectorKey m_PositionKey;
+			m_PositionKey.mTime = frame;
+			m_PositionKey.mValue = aiVector3D();
+			// Insert the new entry
+			m_PositionKeys.insert(std::upper_bound(m_PositionKeys.begin(), m_PositionKeys.end(), m_PositionKey), m_PositionKey);
+			delete(_scene->mAnimations[_animation]->mChannels[i]->mPositionKeys);
+			_scene->mAnimations[_animation]->mChannels[i]->mPositionKeys = new aiVectorKey[(_AnimBone->mNumPositionKeys + 1) * 2];
+			std::copy(m_PositionKeys.begin(), m_PositionKeys.end(), _scene->mAnimations[_animation]->mChannels[i]->mPositionKeys);
+			_scene->mAnimations[_animation]->mChannels[i]->mNumPositionKeys++;
+		}
+		// Scale Keys
+		m_keyframe = -1;
+		for (glm::uint j = 0; j < _AnimBone->mNumScalingKeys; j++) {
+			if (frame == (int)_AnimBone->mScalingKeys[j].mTime) {
+				// We found a keyframe that matches, we can replace it.
+				m_keyframe = j;
+				break;
+			}
+		}
+
+		if (m_keyframe == -1)
+		{
+			// Creating new entry.
+			// Copy mPositionKeys to Vector for easy insertion
+			std::vector<aiVectorKey> m_ScalingKeys(_AnimBone->mScalingKeys,
+				_AnimBone->mScalingKeys + _AnimBone->mNumScalingKeys);
+
+			aiVectorKey m_ScalingKey;
+			m_ScalingKey.mTime = frame;
+			m_ScalingKey.mValue = aiVector3D();
+			// Insert the new entry
+			m_ScalingKeys.insert(std::upper_bound(m_ScalingKeys.begin(), m_ScalingKeys.end(), m_ScalingKey), m_ScalingKey);
+			delete(_scene->mAnimations[_animation]->mChannels[i]->mScalingKeys);
+			_scene->mAnimations[_animation]->mChannels[i]->mScalingKeys = new aiVectorKey[(_AnimBone->mNumScalingKeys + 1) * 2];
+			std::copy(m_ScalingKeys.begin(), m_ScalingKeys.end(), _scene->mAnimations[_animation]->mChannels[i]->mScalingKeys);
+			_scene->mAnimations[_animation]->mChannels[i]->mNumScalingKeys++;
+		}
+		// Rotation Keys
+		m_keyframe = -1;
+		for (glm::uint j = 0; j < _AnimBone->mNumRotationKeys; j++) {
+			if (frame == (int)_AnimBone->mRotationKeys[j].mTime) {
+				// We found a keyframe that matches, we can replace it.
+				m_keyframe = j;
+				break;
+			}
+		}
+
+		if (m_keyframe == -1)
+		{
+			// Creating new entry.
+			// Copy mPositionKeys to Vector for easy insertion
+			std::vector<aiQuatKey> m_RotationKeys(_AnimBone->mRotationKeys,
+				_AnimBone->mRotationKeys + _AnimBone->mNumRotationKeys);
+
+			aiQuatKey m_RotationKey;
+			m_RotationKey.mTime = frame;
+			m_RotationKey.mValue = aiQuaternion();
+			// Insert the new entry
+			m_RotationKeys.insert(std::upper_bound(m_RotationKeys.begin(), m_RotationKeys.end(), m_RotationKey), m_RotationKey);
+			delete(_scene->mAnimations[_animation]->mChannels[i]->mRotationKeys);
+			_scene->mAnimations[_animation]->mChannels[i]->mRotationKeys = new aiQuatKey[(_AnimBone->mNumRotationKeys + 1) * 2];
+			std::copy(m_RotationKeys.begin(), m_RotationKeys.end(), _scene->mAnimations[_animation]->mChannels[i]->mRotationKeys);
+			_scene->mAnimations[_animation]->mChannels[i]->mNumRotationKeys++;
+		}
+
+		// Since we're creating a new entry, increase duration by 1.		
+	}
 }
 
 // Create a new blank animation with an array of each node anim for each bone
@@ -1413,15 +1371,11 @@ void bMesh::InsertKeyFrame(glm::uint frame, int _animation, const aiNode* pNode,
 void bMesh::CreateAnimation()
 {
 	// Create a new aiScene in memory
-	int numAnimations;
+	int numAnimations = 0;
 
 	if (this->m_pScene->HasAnimations())
 	{
 		numAnimations = this->m_pScene->mNumAnimations;
-	}
-	else
-	{
-		numAnimations = 0;
 	}
 
 	// incrementing the number of animations
@@ -1625,11 +1579,7 @@ void bMesh::KinectBoneTransformAtFrame(int frame, std::vector<glm::mat4>& Transf
 	int _animationToInsertInto)
 {
 	glm::mat4 Identity = glm::mat4(1.0f);
-	int duration = _scene->mAnimations[_animationToInsertInto]->mDuration;
-	if (frame >= duration)
-	{
-		InsertKeyFrame(frame, _animationToInsertInto, _scene->mRootNode, _scene);
-	}
+	InsertKeyFrame(frame, _animationToInsertInto, _scene->mRootNode, _scene);
 
 	if (_scene->HasAnimations())
 	{
@@ -1689,9 +1639,39 @@ void bMesh::KinectReadNodeHeirarchyAtFrame(int frame, const aiNode* pNode,
 		glm::vec3 globalScale;
 		glm::decompose(NodeTransformation, globalScale, globalRot, globalPos, glm::vec3(1.0), glm::vec4(1.0));
 		globalRot = glm::conjugate(globalRot);
-		_BoneAnimNode->mRotationKeys[frame].mValue = aiQuaternion(globalRot.w, globalRot.x, globalRot.y, globalRot.z);
-		_BoneAnimNode->mPositionKeys[frame].mValue = aiVector3D(globalPos.x, globalPos.y, globalPos.z);
-		_BoneAnimNode->mScalingKeys[frame].mValue = aiVector3D(globalScale.x, globalScale.y, globalScale.z);
+		int closectRotKeyFrame = 0; //FindRotation(frame, _BoneAnimNode);
+		std::vector<aiVectorKey> vecKeys(_BoneAnimNode->mScalingKeys, _BoneAnimNode->mScalingKeys + _BoneAnimNode->mNumRotationKeys);
+		for (glm::uint j = 0; j < _BoneAnimNode->mNumRotationKeys; j++) {
+			if (frame <= (int)_BoneAnimNode->mRotationKeys[j].mTime) {
+				closectRotKeyFrame = j;
+				break;
+			}
+		}
+
+		int closectPosKeyFrame = 0;//FindPosition(frame, _BoneAnimNode);
+		for (glm::uint j = 0; j < _BoneAnimNode->mNumPositionKeys; j++) {
+			if (frame <= (int)_BoneAnimNode->mPositionKeys[j].mTime) {
+				closectPosKeyFrame = j;
+				break;
+			}
+		}
+
+		int closectScalKeyFrame = 0; //FindScaling(frame, _BoneAnimNode);
+		for (glm::uint j = 0; j < _BoneAnimNode->mNumScalingKeys; j++) {
+			if (frame <= (int)_BoneAnimNode->mScalingKeys[j].mTime) {
+				closectScalKeyFrame = j;
+				break;
+			}
+		}
+
+		_BoneAnimNode->mRotationKeys[closectRotKeyFrame].mValue = aiQuaternion(globalRot.w, globalRot.x, globalRot.y, globalRot.z);		
+		_BoneAnimNode->mPositionKeys[closectPosKeyFrame].mValue = aiVector3D(globalPos.x, globalPos.y, globalPos.z);		
+		_BoneAnimNode->mScalingKeys[closectScalKeyFrame].mValue = aiVector3D(globalScale.x, globalScale.y, globalScale.z);
+
+		printf("%s: Animation Duration (%d), Current Anim Time (%d), Inserted frame at Rot(%d);Pos(%d);Scaling(%d).\n",
+			NodeName.c_str(),
+			(int)_scene->mAnimations[_animationToInsertInto]->mDuration,
+			frame, closectRotKeyFrame, closectPosKeyFrame, closectScalKeyFrame);
 
 	}
 
@@ -1934,32 +1914,6 @@ void bMesh::PadImportedAnimationFrames(aiScene* _scene)
 
 				_scene->mAnimations[0]->mChannels[i]->mNumRotationKeys++;
 			}
-			
-			/*
-			// Position frames is lass than the number of frames, means we're "lacking" frames.
-			// We're assuming the missing frames are at the end of the sequence without gaps?
-			if (_scene->mAnimations[0]->mChannels[i]->mNumScalingKeys < frame)
-			{
-				printf("mNumScalingKeys (%d) < frame (%d), adding frame... \n", _scene->mAnimations[0]->mChannels[i]->mNumPositionKeys,
-					frame);
-				int maxKeyFrames = _scene->mAnimations[0]->mChannels[i]->mNumScalingKeys;
-
-				std::vector<aiVectorKey> aiVectors(_scene->mAnimations[0]->mChannels[i]->mScalingKeys,
-					_scene->mAnimations[0]->mChannels[i]->mScalingKeys + maxKeyFrames);
-
-				aiVectorKey _aiVector;
-				_aiVector.mTime = _scene->mAnimations[0]->mChannels[i]->mScalingKeys[0].mTime;
-				_aiVector.mValue = _scene->mAnimations[0]->mChannels[i]->mScalingKeys[0].mValue;
-
-				// add new element to the vector of our keys
-				aiVectors.push_back(_aiVector);
-
-				// copy vector back to our array
-				_scene->mAnimations[0]->mChannels[i]->mScalingKeys = &aiVectors[0];
-				_scene->mAnimations[0]->mChannels[i]->mNumScalingKeys++;
-			}
-			*/
-			//printf("End Loop\n");
 		}
 	}
 	printf("Done... \n");

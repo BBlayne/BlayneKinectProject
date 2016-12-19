@@ -74,14 +74,18 @@ static GLubyte* checkImage;
 static GLuint texName;
 bool insertedKeyFrame = false;
 bool isInsertingKeyFrame = false;
+bool isSettingDuration = false;
 auto lastTime = Clock::now();
+
+int minDuration = 0;
 
 // Stuff for key frames
 int minFrames = 0;
 int maxFrames = 1;
 int frameVal = 0;
-int maxFramesVal = 0;
-int prevMaxFramesVal = 0;
+int animDuration = 0;
+//int maxFramesVal = 0;
+//int prevMaxFramesVal = 0;
 
 // Function called to copy the content of a std::string (souceString) handled 
 // by the AntTweakBar library to destinationClientString handled by our application
@@ -126,6 +130,13 @@ void TW_CALL InsertKeyFrameButton(void *clientData)
 	ANIMATION_MODE _mode = *(ANIMATION_MODE*)clientData;
 	if (_mode == ANIMATION_MODE::INSERT)
 		isInsertingKeyFrame = true;
+}
+
+void TW_CALL SetDurationFrameButton(void *clientData)
+{
+	ANIMATION_MODE _mode = *(ANIMATION_MODE*)clientData;
+	if (_mode == ANIMATION_MODE::INSERT)
+		isSettingDuration = true;
 }
 
 void makeCheckImage()
@@ -338,7 +349,7 @@ public:
 			
 
 		// TwBar stuff.
-		bar = TwNewBar("Blayne's Kinect v2.0 3D App.");
+		bar = TwNewBar("Blaynes Kinect v2.0 3D App.");
 
 		TwEnumVal AnimationModes[] = {
 			{ TPOSE, "TPose" },
@@ -396,21 +407,27 @@ public:
 		// Current Frame selects the current available frame to view & insert
 		TwAddVarRW(bar, "frame", TW_TYPE_INT32, &frameVal,
 			" label='Current Frame' step=1 ");
-		TwAddVarRW(bar, "maxframes", TW_TYPE_INT32, &maxFramesVal,
-			" label='Set Max Frames' step=1 ");
 
-		maxFrames = m_SkinnedMeshes[0]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration;
-		maxFramesVal = maxFrames + 1;
+		maxFrames = m_SkinnedMeshes[0]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration - 1;
 		TwSetParam(bar, "frame", "min", TW_PARAM_INT32, 1, &minFrames);
 		TwSetParam(bar, "frame", "max", TW_PARAM_INT32, 1, &maxFrames);
-		minFrames = 1;
-		TwSetParam(bar, "maxframes", "min", TW_PARAM_INT32, 1, &maxFrames);
-		TwSetParam(bar, "maxframes", "max", TW_PARAM_INT32, 1, &maxFrames);
 
+		TwAddSeparator(bar, "", NULL);
+		TwAddButton(bar, "Set Duration", SetDurationFrameButton, &m_currentMode, " label='Set Duration' ");
+		TwAddSeparator(bar, "", NULL);
+
+		minDuration = animDuration = m_SkinnedMeshes[0]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration;
+
+		TwAddVarRW(bar, "mDuration", TW_TYPE_INT32, &animDuration,
+			" label='Set Duration' step=1 ");
+
+		
+
+		TwSetParam(bar, "mDuration", "min", TW_PARAM_INT32, 1, &minDuration);
 		// Message added to the help bar.
 		TwDefine(" GLOBAL help='This example shows how to integrate AntTweakBar with OGLDEV.' "); 
 		TwAddVarRO(bar, "GL Major Version", TW_TYPE_INT32, &gGLMajorVersion, " label='Major version of GL' ");
-
+		TwDefine(" 'Blaynes Kinect v2.0 3D App.' label='Control Menu' size='250 400' valueswidth=120 ");
 		/*
 		if (!m_RenderToTexturer.InitFrameBuffer(WINDOW_WIDTH, WINDOW_HEIGHT, texName))
 		{
@@ -620,12 +637,12 @@ public:
 		
 		float runningTime = GetRunningTime();
 
+		printf("Max Frames: %d \n", maxFrames);
+
 		if (m_currentlySelectedAnimation < m_SkinnedMeshes[0]->getScene()->mNumAnimations)
 		{
-			maxFrames = m_SkinnedMeshes[0]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration;
-			maxFramesVal = maxFrames;
+			maxFrames = m_SkinnedMeshes[0]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration - 1;
 			TwSetParam(bar, "frame", "max", TW_PARAM_INT32, 1, &maxFrames);
-			TwSetParam(bar, "maxframes", "max", TW_PARAM_INT32, 1, &maxFrames);
 			TwRefreshBar(bar);
 		}
 
@@ -633,13 +650,18 @@ public:
 		if (m_currentlySelectedAnimation == m_maxAnimation)
 		{
 			// Can I change the name...?
-			AddNewAnimationToScene(); // testing this out
+			AddNewAnimationToScene(_whichMesh); // testing this out
 
 			m_currentMode = ANIMATION_MODE::INSERT;
 			m_SkinnedMeshes[_whichMesh]->m_mask = m_KinectObj->getMask();
 			m_SkinnedMeshes[_whichMesh]->m_JointNameOrientations = m_KinectObj->getJointNameOrientations();
 			m_SkinnedMeshes[_whichMesh]->KinectBoneTransform(transforms,
 				(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene());
+			minDuration = m_SkinnedMeshes[_whichMesh]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration;
+
+			TwSetParam(bar, "mDuration", "min", TW_PARAM_INT32, 1, &minDuration);
+			TwRefreshBar(bar);
+
 		}
 		else
 		{
@@ -658,10 +680,15 @@ public:
 			}
 			else if (m_currentMode == ANIMATION_MODE::INSERT)
 			{
-				maxFrames = m_SkinnedMeshes[0]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration;
-				maxFramesVal = maxFrames;
-				TwSetParam(bar, "frame", "max", TW_PARAM_INT32, 1, &maxFramesVal);
-				TwSetParam(bar, "maxframes", "max", TW_PARAM_INT32, 1, &maxFramesVal);
+				if (isSettingDuration)
+				{
+					isSettingDuration = false;
+					m_SkinnedMeshes[_whichMesh]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration = animDuration;
+
+				}
+
+				maxFrames = m_SkinnedMeshes[_whichMesh]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration - 1;
+				TwSetParam(bar, "frame", "max", TW_PARAM_INT32, 1, &maxFrames);
 				TwRefreshBar(bar);
 				if (m_KinectObj->getBothHandsClosed() || isInsertingKeyFrame)
 				{
@@ -675,6 +702,9 @@ public:
 						// We pass the frame in which we wish to insert our new key frame animation
 						m_SkinnedMeshes[_whichMesh]->KinectBoneTransformAtFrame(frameVal, transforms,
 							(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene(), m_currentlySelectedAnimation);
+						minDuration = m_SkinnedMeshes[_whichMesh]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration;
+						TwSetParam(bar, "mDuration", "min", TW_PARAM_INT32, 1, &minDuration);
+						TwRefreshBar(bar);
 					}
 					else
 					{
@@ -702,8 +732,7 @@ public:
 			else if (m_currentMode == ANIMATION_MODE::VIEW)
 			{
 				// Viewing inserted frames
-				m_SkinnedMeshes[_whichMesh]->BoneTransformAtFrame(frameVal, transforms,
-					(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene(), m_currentlySelectedAnimation);
+				m_SkinnedMeshes[_whichMesh]->BoneTransform(frameVal, transforms, m_currentlySelectedAnimation);
 			}
 			else if (m_currentMode == ANIMATION_MODE::PLAYER)
 			{
@@ -725,9 +754,10 @@ public:
 		m_SkinnedMeshes[_whichMesh]->Render();
 	}
 
-	void AddNewAnimationToScene()
+	void AddNewAnimationToScene(int _whichMesh)
 	{
-		m_SkinnedMeshes[0]->CreateAnimation();
+		m_SkinnedMeshes[_whichMesh]->CreateAnimation();
+		
 		std::string defaultAnims;
 		m_maxAnimation = 0;
 
@@ -743,6 +773,7 @@ public:
 
 		TwSetParam(bar, "Animations", "enum", TW_PARAM_CSTRING, 1, defaultAnims.c_str());
 		TwRefreshBar(bar);
+		
 	}
 };
 
