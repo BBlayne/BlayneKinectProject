@@ -62,7 +62,7 @@ int gGLMajorVersion = 0;
 #define WINDOW_WIDTH 1024
 #define WINDOW_HEIGHT 768
 
-typedef enum { CHEB, UNITYCHAN, STEVE, ADRIAN } MESH_TYPE;
+typedef enum { GEORGE, DAVE } MESH_TYPE;
 
 typedef enum { TPOSE, FREE, VIEW, INSERT, PLAYER, KINECT_COL } ANIMATION_MODE;
 
@@ -84,8 +84,8 @@ int minFrames = 0;
 int maxFrames = 1;
 int frameVal = 0;
 int animDuration = 0;
-//int maxFramesVal = 0;
-//int prevMaxFramesVal = 0;
+int currentSkinnedMesh = 0;
+int previousSkinnedMesh = 0;
 
 // Function called to copy the content of a std::string (souceString) handled 
 // by the AntTweakBar library to destinationClientString handled by our application
@@ -265,7 +265,7 @@ public:
 
 		TwCopyStdStringToClientFunc(CopyStdStringToClient);
 
-		glm::vec3 Pos(0.0f, 4.0f, -8.0f);
+		glm::vec3 Pos(0.0f, 4.0f, -10.0f);
 		glm::vec3 LookAt(0.0f, 4.0f, 0.0f);
 		glm::vec3 Up(0.0f, 1.0f, 0.0f);
 
@@ -327,18 +327,24 @@ public:
 			m_objRotationEuler,
 			glm::vec3(1.0f, 1.0f, 1.0f)))
 			return false;
-		/*
-		if (!this->InitSkinnedMesh("Dave.fbx",
+
+		// Dave.fbx, BasicCheb.fbx
+		if (!this->InitBasicMesh("Dave.fbx",
+			glm::vec3(0.0f, 0.0f, 0.0f),
+			m_objRotationEuler,
+			glm::vec3(1.0f, 1.0f, 1.0f)))
+			return false;
+
+		if (!this->InitSkinnedMesh("George.fbx",
 			glm::vec3(0.0f, 0.0f, 0.0f),
 			m_objRotationEuler,
 			glm::vec3(1.0f, 1.0f, 1.0f)))
 		{
-			printf("Error loading Dave\n");
+			printf("Error loading George\n");
 			return false;
 		}
-		*/
 
-		if (!this->InitSkinnedMesh("George.fbx",
+		if (!this->InitSkinnedMesh("Dave.fbx",
 			glm::vec3(0.0f, 0.0f, 0.0f),
 			m_objRotationEuler,
 			glm::vec3(1.0f, 1.0f, 1.0f)))
@@ -350,7 +356,18 @@ public:
 
 		// TwBar stuff.
 		bar = TwNewBar("Blaynes Kinect v2.0 3D App.");
+		TwEnumVal SkinnedMeshes[] = {
+			{ GEORGE, "George" },
+			{ DAVE, "Dave" }
+		};
 
+		TwType MeshTwType = TwDefineEnum("Meshes", SkinnedMeshes, 2);
+		// Link it to the tweak bar
+		TwAddVarRW(bar, "Meshes", MeshTwType, &currentSkinnedMesh, NULL);
+		// The second parameter is an optional name
+		TwAddSeparator(bar, "", NULL);
+
+		// Animation Modes
 		TwEnumVal AnimationModes[] = {
 			{ TPOSE, "TPose" },
 			{ FREE, "Free" },
@@ -372,14 +389,14 @@ public:
 
 		std::string defaultAnims;
 		m_maxAnimation = 0;
-		if (m_SkinnedMeshes[0]->getScene()->HasAnimations())
+		if (m_SkinnedMeshes[currentSkinnedMesh]->getScene()->HasAnimations())
 		{
 			defaultAnims = " enum='";
-			m_maxAnimation = m_SkinnedMeshes[0]->getScene()->mNumAnimations;
+			m_maxAnimation = m_SkinnedMeshes[currentSkinnedMesh]->getScene()->mNumAnimations;
 			int i = 0;
 			for ( ; i < m_maxAnimation; i++)
 			{
-				defaultAnims.append(std::to_string(i) + " {").append(m_SkinnedMeshes[0]->getScene()->mAnimations[i]->mName.data).append("}, ");
+				defaultAnims.append(std::to_string(i) + " {").append(m_SkinnedMeshes[currentSkinnedMesh]->getScene()->mAnimations[i]->mName.data).append("}, ");
 			}
 
 			defaultAnims.append(std::to_string(i) + " { New Animation }' ");
@@ -489,7 +506,7 @@ public:
 
 		// Refresh orientations & call rendering
 		this->RenderBasicMesh(0, 0);
-		this->RenderSkinnedMesh(0, 0);
+		this->RenderSkinnedMesh(0, currentSkinnedMesh);
 	
 		//  RenderFPS();     
 
@@ -597,7 +614,7 @@ public:
 			printf(" Did not load mesh?\n");
 			return false;
 		}
-		maxFrames = mMesh->getScene()->mAnimations[0]->mDuration - 1;
+		//maxFrames = mMesh->getScene()->mAnimations[0]->mDuration - 1;
 		// Set object orientations here.
 		m_SkinnedMeshes.push_back(mMesh);
 		return true;
@@ -637,11 +654,20 @@ public:
 		
 		float runningTime = GetRunningTime();
 
-		printf("Max Frames: %d \n", maxFrames);
-
-		if (m_currentlySelectedAnimation < m_SkinnedMeshes[0]->getScene()->mNumAnimations)
+		if (currentSkinnedMesh != previousSkinnedMesh)
 		{
-			maxFrames = m_SkinnedMeshes[0]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration - 1;
+			UpdateAnimationsList(_whichMesh);
+			m_currentlySelectedAnimation = 0;
+			//TwSetParam(bar, "Animations", animationsType, TW_PARAM_INT32, 1, &minDuration);
+			minDuration = m_SkinnedMeshes[_whichMesh]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration;
+			TwSetParam(bar, "mDuration", "min", TW_PARAM_INT32, 1, &minDuration);
+			TwRefreshBar(bar);
+		}
+
+
+		if (m_currentlySelectedAnimation < m_SkinnedMeshes[_whichMesh]->getScene()->mNumAnimations)
+		{
+			maxFrames = m_SkinnedMeshes[_whichMesh]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration - 1;
 			TwSetParam(bar, "frame", "max", TW_PARAM_INT32, 1, &maxFrames);
 			TwRefreshBar(bar);
 		}
@@ -668,7 +694,7 @@ public:
 			if (m_currentMode == ANIMATION_MODE::TPOSE)
 			{
 				// Render Basic Mesh
-				RenderBasicMesh(0, 1);
+				RenderBasicMesh(0, _whichMesh + 1);
 				return;
 			}
 			else if (m_currentMode == ANIMATION_MODE::FREE)
@@ -752,6 +778,34 @@ public:
 		m_SkinningTech->SetWVP(m_pipelines[_whichPipe].GetWVPTrans());
 		m_SkinningTech->SetWorldMatrix(m_pipelines[_whichPipe].GetWorldTrans());
 		m_SkinnedMeshes[_whichMesh]->Render();
+
+		previousSkinnedMesh = currentSkinnedMesh;
+	}
+
+	void UpdateAnimationsList(int _whichMesh)
+	{
+		std::string defaultAnims;
+		m_maxAnimation = 0;
+		if (m_SkinnedMeshes[_whichMesh]->getScene()->HasAnimations())
+		{
+			defaultAnims = "";
+			m_maxAnimation = m_SkinnedMeshes[_whichMesh]->getScene()->mNumAnimations;
+			int i = 0;
+			for (; i < m_maxAnimation; i++)
+			{
+				defaultAnims.append(std::to_string(i) + " {").append(m_SkinnedMeshes[_whichMesh]->getScene()->mAnimations[i]->mName.data).append("}, ");
+			}
+
+			defaultAnims.append(std::to_string(i) + " { New Animation } ");
+		}
+		else
+		{
+			defaultAnims = " 0 { New Animation } ";
+			// SkinnedMesh Create new Blank animation with default T-Pose keyframe at frame 0
+		}
+
+		TwSetParam(bar, "Animations", "enum", TW_PARAM_CSTRING, 1, defaultAnims.c_str());
+		TwRefreshBar(bar);
 	}
 
 	void AddNewAnimationToScene(int _whichMesh)
@@ -762,7 +816,7 @@ public:
 		m_maxAnimation = 0;
 
 		defaultAnims = "";
-		m_maxAnimation = m_SkinnedMeshes[0]->getScene()->mNumAnimations;
+		m_maxAnimation = m_SkinnedMeshes[_whichMesh]->getScene()->mNumAnimations;
 		int i = 0;
 		for (; i < m_maxAnimation; i++)
 		{
