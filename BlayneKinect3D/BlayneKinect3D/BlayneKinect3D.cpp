@@ -52,6 +52,7 @@ using namespace glm;
 #include "BlayneRenderToTexture.h"
 #include "Blayne_Kinect.h"
 #include "BlayneSkinningTechnique.h"
+#include "KinectTextureTechnique.h"
 
 
 int gGLMajorVersion = 0;
@@ -62,9 +63,9 @@ int gGLMajorVersion = 0;
 #define WINDOW_WIDTH 1024
 #define WINDOW_HEIGHT 768
 
-typedef enum { GEORGE, DAVE } MESH_TYPE;
+typedef enum { GEORGE, DAVE, CHEB } MESH_TYPE;
 
-typedef enum { TPOSE, FREE, VIEW, INSERT, PLAYER, KINECT_COL } ANIMATION_MODE;
+typedef enum { TPOSE, FREE, VIEW, INSERT_KINECT, INSERT_POSE, PLAYER, KINECT_COL } ANIMATION_MODE;
 
 #define imageWidth 1024
 #define imageHeight 1024
@@ -86,6 +87,9 @@ int frameVal = 0;
 int animDuration = 0;
 int currentSkinnedMesh = 0;
 int previousSkinnedMesh = 0;
+int basicMeshOffset = 0;
+int basicMeshPipelineIndex = 0;
+bool isMouseDown = false;
 
 // Function called to copy the content of a std::string (souceString) handled 
 // by the AntTweakBar library to destinationClientString handled by our application
@@ -128,14 +132,14 @@ void TW_CALL GetBarTitleCB(void *value, void *clientData)
 void TW_CALL InsertKeyFrameButton(void *clientData)
 {
 	ANIMATION_MODE _mode = *(ANIMATION_MODE*)clientData;
-	if (_mode == ANIMATION_MODE::INSERT)
+	if (_mode == ANIMATION_MODE::INSERT_KINECT)
 		isInsertingKeyFrame = true;
 }
 
 void TW_CALL SetDurationFrameButton(void *clientData)
 {
 	ANIMATION_MODE _mode = *(ANIMATION_MODE*)clientData;
-	if (_mode == ANIMATION_MODE::INSERT)
+	if (_mode == ANIMATION_MODE::INSERT_KINECT)
 		isSettingDuration = true;
 }
 
@@ -182,9 +186,9 @@ class BlayneKinect3D : public IBlayneCallbacks, public BlayneApp
 private:
 	std::vector<BlayneBasicLightingTechnique> m_LightingTechs;
 	BlayneBasicLightingTechnique m_LightingTech;
-	BlayneBasicLightingTechnique m_KinectTectureTech;
+	KinectTextureTechnique m_KinectTextureTech;
 	// Shader/Lighting info for a skinned mesh
-	SkinningTechnique* m_SkinningTech;
+	SkinningTechnique m_SkinningTech;
 	Blayne_Camera* m_pGameCamera;
 	DirectionalLight m_directionalLight;
 	// Basic Meshes Array?
@@ -273,24 +277,12 @@ public:
 
 
 		m_pGameCamera = new Blayne_Camera(WINDOW_WIDTH, WINDOW_HEIGHT, Pos, LookAt, Up);
+		
 		if (!m_LightingTech.Init()) {
 			printf("Error initializing the lighting technique\n");
 			OGLDEV_ERROR("Error initializing the lighting technique\n");			
 			return false;
 		}
-
-		if (!m_KinectTectureTech.Init2())
-		{
-			printf("Error initializing the m_KinectTectureTech \n");
-			OGLDEV_ERROR("Error initializing the m_KinectTectureTech\n");
-			return false;
-		}
-
-		m_KinectTectureTech.Enable();
-		m_KinectTectureTech.SetColorTextureUnit(COLOR_TEXTURE_UNIT_INDEX);
-		m_KinectTectureTech.SetDirectionalLight(m_directionalLight);
-		m_KinectTectureTech.SetMatSpecularIntensity(0.0f);
-		m_KinectTectureTech.SetMatSpecularPower(0);
 
 		m_LightingTech.Enable();
 		printf("m_LightingTech enabled\n");
@@ -299,19 +291,29 @@ public:
 		m_LightingTech.SetDirectionalLight(m_directionalLight);
 		m_LightingTech.SetMatSpecularIntensity(0.0f);
 		m_LightingTech.SetMatSpecularPower(0);
+		
+		if (!m_KinectTextureTech.Init())
+		{
+			printf("Error initializing the m_KinectTectureTech \n");
+			OGLDEV_ERROR("Error initializing the m_KinectTectureTech\n");
+			return false;
+		}
 
-		m_SkinningTech = new SkinningTechnique();
-		if (!m_SkinningTech->Init())
+		m_KinectTextureTech.Enable();
+		printf("m_KinectTextureTech enabled\n");
+		m_KinectTextureTech.SetTextureUnit(COLOR_TEXTURE_UNIT_INDEX);
+
+		if (!m_SkinningTech.Init())
 		{
 			printf("Error initializing the lighting technique (SkinningTechnique) \n");
 			return false;
 		}
-		m_SkinningTech->Enable();
+		m_SkinningTech.Enable();
 		printf("m_SkinningTech enabled\n");
-		m_SkinningTech->SetColorTextureUnit(COLOR_TEXTURE_UNIT_INDEX);
-		m_SkinningTech->SetDirectionalLight(m_directionalLight);
-		m_SkinningTech->SetMatSpecularIntensity(0.0f);
-		m_SkinningTech->SetMatSpecularPower(0);
+		m_SkinningTech.SetColorTextureUnit(COLOR_TEXTURE_UNIT_INDEX);
+		m_SkinningTech.SetDirectionalLight(m_directionalLight);
+		m_SkinningTech.SetMatSpecularIntensity(0.0f);
+		m_SkinningTech.SetMatSpecularPower(0);
 
 		// Load Meshes & Orientations
 		
@@ -320,7 +322,20 @@ public:
 			glm::vec3(0.0f, 0.0f, 0.0f),
 			glm::vec3(10.0f, 0.1f, 10.0f)))
 			return false;
+
+		basicMeshOffset++;
+		/*
+		//-0.106, 0.021, 0.085
+		// Cubes for Skeleton
+		if (!this->InitBasicMesh("StandardCube.fbx",
+			glm::vec3(0.0f, 0.0f, 0.0f),
+			glm::vec3(0.0f, 0.0f, 0.0f),
+			// glm::vec3(0.125f, 0.125f, 0.125f)
+			glm::vec3(0.125f, 1.0f, 0.125f)))
+			return false;
 			
+		basicMeshOffset++;
+		*/
 		// Dave.fbx, BasicCheb.fbx
 		if (!this->InitBasicMesh("George.fbx",
 			glm::vec3(0.0f, 0.0f, 0.0f),
@@ -328,8 +343,15 @@ public:
 			glm::vec3(1.0f, 1.0f, 1.0f)))
 			return false;
 
-		// Dave.fbx, BasicCheb.fbx
+		// Dave.fbx, George.fbx BasicCheb.fbx
 		if (!this->InitBasicMesh("Dave.fbx",
+			glm::vec3(0.0f, 0.0f, 0.0f),
+			m_objRotationEuler,
+			glm::vec3(1.0f, 1.0f, 1.0f)))
+			return false;
+
+
+		if (!this->InitBasicMesh("RiggedCheb.fbx",
 			glm::vec3(0.0f, 0.0f, 0.0f),
 			m_objRotationEuler,
 			glm::vec3(1.0f, 1.0f, 1.0f)))
@@ -344,6 +366,13 @@ public:
 			return false;
 		}
 
+		m_SkinnedMeshes[0]->createSkeleton(m_BasicMeshes[1]);
+		Blayne_Pipeline skeletonPipeline;
+		skeletonPipeline = m_pipeline;
+		
+		m_pipelines.push_back(skeletonPipeline);
+		basicMeshPipelineIndex = m_pipelines.size() - 1;
+
 		if (!this->InitSkinnedMesh("Dave.fbx",
 			glm::vec3(0.0f, 0.0f, 0.0f),
 			m_objRotationEuler,
@@ -352,16 +381,29 @@ public:
 			printf("Error loading Dave\n");
 			return false;
 		}
+
+		m_SkinnedMeshes[1]->createSkeleton(m_BasicMeshes[1]);
+
+		if (!this->InitSkinnedMesh("RiggedCheb.fbx",
+			glm::vec3(0.0f, 0.0f, 0.0f),
+			m_objRotationEuler,
+			glm::vec3(1.0f, 1.0f, 1.0f)))
+		{
+			printf("Error loading RiggedCheb\n");
+			return false;
+		}
 			
+		m_SkinnedMeshes[2]->createSkeleton(m_BasicMeshes[1]);
 
 		// TwBar stuff.
 		bar = TwNewBar("Blaynes Kinect v2.0 3D App.");
 		TwEnumVal SkinnedMeshes[] = {
 			{ GEORGE, "George" },
-			{ DAVE, "Dave" }
+			{ DAVE, "Dave" },
+			{ CHEB, "Chebadiah"}
 		};
 
-		TwType MeshTwType = TwDefineEnum("Meshes", SkinnedMeshes, 2);
+		TwType MeshTwType = TwDefineEnum("Meshes", SkinnedMeshes, 3);
 		// Link it to the tweak bar
 		TwAddVarRW(bar, "Meshes", MeshTwType, &currentSkinnedMesh, NULL);
 		// The second parameter is an optional name
@@ -372,7 +414,8 @@ public:
 			{ TPOSE, "TPose" },
 			{ FREE, "Free" },
 			{ VIEW, "View" },
-			{ INSERT, "Insert" },
+			{ INSERT_KINECT, "Insert/Kinect" },
+			{ INSERT_POSE, "Insert/Pose" },
 			{ PLAYER, "Player" },
 			{ KINECT_COL, "Kinect" }
 		};
@@ -425,7 +468,7 @@ public:
 		TwAddVarRW(bar, "frame", TW_TYPE_INT32, &frameVal,
 			" label='Current Frame' step=1 ");
 
-		maxFrames = m_SkinnedMeshes[0]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration - 1;
+		maxFrames = m_SkinnedMeshes[currentSkinnedMesh]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration - 1;
 		TwSetParam(bar, "frame", "min", TW_PARAM_INT32, 1, &minFrames);
 		TwSetParam(bar, "frame", "max", TW_PARAM_INT32, 1, &maxFrames);
 
@@ -433,7 +476,7 @@ public:
 		TwAddButton(bar, "Set Duration", SetDurationFrameButton, &m_currentMode, " label='Set Duration' ");
 		TwAddSeparator(bar, "", NULL);
 
-		minDuration = animDuration = m_SkinnedMeshes[0]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration;
+		minDuration = animDuration = m_SkinnedMeshes[currentSkinnedMesh]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration;
 
 		TwAddVarRW(bar, "mDuration", TW_TYPE_INT32, &animDuration,
 			" label='Set Duration' step=1 ");
@@ -502,7 +545,8 @@ public:
 		m_LightingTech.SetDirectionalLight(m_directionalLight);
 
 		// Pass our camera object to our pipeline object.
-		m_pipelines[0].SetCamera(*m_pGameCamera);
+		for (int i = 0; i < m_pipelines.size(); i++)
+			m_pipelines[i].SetCamera(*m_pGameCamera);
 
 		// Refresh orientations & call rendering
 		this->RenderBasicMesh(0, 0);
@@ -526,7 +570,7 @@ public:
 
 		if (m_currentMode == KINECT_COL)
 		{
-			m_KinectTectureTech.Enable();
+			m_KinectTextureTech.Enable();
 			m_KinectObj->Tick(deltaTime);
 			m_KinectObj->ConvertColourBufferToTexture();
 			m_KinectObj->DrawPixelBuffer();
@@ -575,13 +619,27 @@ public:
 
 	virtual void MouseClickHandlerCB(BLAYNE_MOUSE Button, BLAYNE_KEY_STATE State, int x, int y)
 	{
+		if (State == BLAYNE_KEY_STATE::BLAYNE_KEY_STATE_PRESS)
+			isMouseDown = true;
+		else
+			isMouseDown = false;
+
 		m_atb.MouseCB(Button, State, x, y);
 	}
 
 	virtual void PassiveMouseHandlerCB(int x, int y)
 	{
 		if (!m_atb.PassiveMouseCB(x, y))
-		{
+		{	
+			if (isMouseDown)
+			{
+
+			}
+			else
+			{
+
+			}
+
 			m_pGameCamera->OnMouseHandler(x, y);
 		}
 	}
@@ -641,7 +699,7 @@ public:
 		//printf("%f, %f, %f \n", m_BasicMeshes[_whichMesh]->GetOrientation().m_translation.x,
 		//	m_BasicMeshes[_whichMesh]->GetOrientation().m_translation.y,
 		//	m_BasicMeshes[_whichMesh]->GetOrientation().m_translation.z);
-		m_LightingTech.SetWVP(m_pipelines[0].GetWVPTrans());
+		m_LightingTech.SetWVP(m_pipelines[_whichPipe].GetWVPTrans());
 		//m_LightingTech.SetWorldMatrix(m_pipelines[0].GetWorldTrans());
 		// Render Mesh
 		m_BasicMeshes[_whichMesh]->Render();
@@ -649,7 +707,7 @@ public:
 
 	void RenderSkinnedMesh(int _whichPipe, int _whichMesh)
 	{
-		m_SkinningTech->Enable();
+		m_SkinningTech.Enable();
 		std::vector<glm::mat4> transforms;
 		
 		float runningTime = GetRunningTime();
@@ -677,24 +735,23 @@ public:
 		{
 			// Can I change the name...?
 			AddNewAnimationToScene(_whichMesh); // testing this out
-
-			m_currentMode = ANIMATION_MODE::INSERT;
+			m_currentMode = ANIMATION_MODE::INSERT_KINECT;
 			m_SkinnedMeshes[_whichMesh]->m_mask = m_KinectObj->getMask();
-			m_SkinnedMeshes[_whichMesh]->m_JointNameOrientations = m_KinectObj->getJointNameOrientations();
+			m_SkinnedMeshes[_whichMesh]->m_JointNameOrientations = 
+				m_KinectObj->getJointNameOrientations();
 			m_SkinnedMeshes[_whichMesh]->KinectBoneTransform(transforms,
 				(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene());
-			minDuration = m_SkinnedMeshes[_whichMesh]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration;
-
+			minDuration = 
+				m_SkinnedMeshes[_whichMesh]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration;
 			TwSetParam(bar, "mDuration", "min", TW_PARAM_INT32, 1, &minDuration);
 			TwRefreshBar(bar);
-
 		}
 		else
 		{
 			if (m_currentMode == ANIMATION_MODE::TPOSE)
 			{
 				// Render Basic Mesh
-				RenderBasicMesh(0, _whichMesh + 1);
+				RenderBasicMesh(0, _whichMesh + basicMeshOffset);
 				return;
 			}
 			else if (m_currentMode == ANIMATION_MODE::FREE)
@@ -704,7 +761,7 @@ public:
 				m_SkinnedMeshes[_whichMesh]->KinectBoneTransform(transforms,
 					(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene());
 			}
-			else if (m_currentMode == ANIMATION_MODE::INSERT)
+			else if (m_currentMode == ANIMATION_MODE::INSERT_KINECT)
 			{
 				if (isSettingDuration)
 				{
@@ -755,6 +812,68 @@ public:
 						(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene());
 				}
 			}
+			else if (m_currentMode == ANIMATION_MODE::INSERT_POSE)
+			{
+
+				// Render Basic Mesh
+				RenderBasicMesh(0, _whichMesh + basicMeshOffset);
+				// Render skeleton
+				m_LightingTech.Enable();
+				for (int i = 0; i < m_SkinnedMeshes[_whichMesh]->m_BasicMeshSkeleton.size(); i++)
+				{
+					Orientation tempOrient;
+					m_pipelines[basicMeshPipelineIndex].Orient(m_SkinnedMeshes[_whichMesh]->m_BasicMeshSkeleton[i]->GetOrientation());
+					//m_pipelines[basicMeshPipelineIndex].Rotate(m_objRotationEuler);
+					m_LightingTech.SetWVP(m_pipelines[basicMeshPipelineIndex].GetWVPTrans());
+					m_SkinnedMeshes[_whichMesh]->m_BasicMeshSkeleton[i]->Render();
+				}
+
+				m_SkinningTech.Enable();
+
+				/*
+				if (isSettingDuration)
+				{
+					isSettingDuration = false;
+					m_SkinnedMeshes[_whichMesh]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration = animDuration;
+
+				}
+
+				maxFrames = m_SkinnedMeshes[_whichMesh]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration - 1;
+				TwSetParam(bar, "frame", "max", TW_PARAM_INT32, 1, &maxFrames);
+				TwRefreshBar(bar);
+				if (isInsertingKeyFrame)
+				{
+					if (!insertedKeyFrame)
+					{
+						// Both hands are closed, insert key frame.
+						printf("Inserting Key Frame. \n");
+						insertedKeyFrame = true;
+						// We pass the frame in which we wish to insert our new key frame animation
+						m_SkinnedMeshes[_whichMesh]->KinectBoneTransformAtFrame(frameVal, transforms,
+							(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene(), m_currentlySelectedAnimation);
+						minDuration = m_SkinnedMeshes[_whichMesh]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration;
+						TwSetParam(bar, "mDuration", "min", TW_PARAM_INT32, 1, &minDuration);
+						TwRefreshBar(bar);
+					}
+					else
+					{
+						isInsertingKeyFrame = false;
+						m_SkinnedMeshes[_whichMesh]->KinectBoneTransform(transforms,
+							(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene());
+					}
+				}
+				else
+				{
+					if (insertedKeyFrame)
+					{
+						insertedKeyFrame = false;
+					}
+
+					m_SkinnedMeshes[_whichMesh]->KinectBoneTransform(transforms,
+						(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene());
+				}
+				*/
+			}
 			else if (m_currentMode == ANIMATION_MODE::VIEW)
 			{
 				// Viewing inserted frames
@@ -769,14 +888,14 @@ public:
 
 		for (int i = 0; i < transforms.size(); i++)
 		{
-			m_SkinningTech->SetBoneTransform(i, transforms[i]);
+			m_SkinningTech.SetBoneTransform(i, transforms[i]);
 		}
 		m_pipelines[_whichPipe].Rotate(m_objRotationEuler);
 		m_pipelines[_whichPipe].Scale(1.0, 1.0, 1.0);
 		m_pipelines[_whichPipe].WorldPos(0.0, 0.0, 0.0);
-		m_SkinningTech->SetEyeWorldPos(m_pGameCamera->GetCameraPosition());		
-		m_SkinningTech->SetWVP(m_pipelines[_whichPipe].GetWVPTrans());
-		m_SkinningTech->SetWorldMatrix(m_pipelines[_whichPipe].GetWorldTrans());
+		m_SkinningTech.SetEyeWorldPos(m_pGameCamera->GetCameraPosition());		
+		m_SkinningTech.SetWVP(m_pipelines[_whichPipe].GetWVPTrans());
+		m_SkinningTech.SetWorldMatrix(m_pipelines[_whichPipe].GetWorldTrans());
 		m_SkinnedMeshes[_whichMesh]->Render();
 
 		previousSkinnedMesh = currentSkinnedMesh;

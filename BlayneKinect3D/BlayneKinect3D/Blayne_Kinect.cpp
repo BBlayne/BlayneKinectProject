@@ -758,18 +758,18 @@ void BlayneKinect::setBoneNameJointOrientations()
 	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Foot.L", Foot_L));
 
 	// Alternative Name
-	Blayne_Types::Blayne_JointOrientations Foot_L_Alt;
-	Foot_L_Alt.m_jointType = JointType_FootLeft;
-	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Foot.L.001", Foot_L_Alt));
+	//Blayne_Types::Blayne_JointOrientations Foot_L_Alt;
+	//Foot_L_Alt.m_jointType = JointType_FootLeft;
+	//m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Foot.L.001", Foot_L_Alt));
 
 	Blayne_Types::Blayne_JointOrientations Foot_R;
 	Foot_R.m_jointType = JointType_FootRight;
 	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Foot.R", Foot_R));
 
 	// Alternative Name
-	Blayne_Types::Blayne_JointOrientations Foot_R_Alt;
-	Foot_R_Alt.m_jointType = JointType_FootRight;
-	m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Foot.R.001", Foot_R_Alt));
+	//Blayne_Types::Blayne_JointOrientations Foot_R_Alt;
+	//Foot_R_Alt.m_jointType = JointType_FootRight;
+	//m_JointNameOrientations.insert(std::pair<std::string, Blayne_Types::Blayne_JointOrientations>("Foot.R.001", Foot_R_Alt));
 
 	Blayne_Types::Blayne_JointOrientations Head;
 	Head.m_jointType = JointType_Head;
@@ -803,8 +803,8 @@ void BlayneKinect::setMask()
 	m_MaskBonesForKinect.push_back("Upper Leg.L");
 	m_MaskBonesForKinect.push_back("Foot.L");
 	m_MaskBonesForKinect.push_back("Foot.R");
-	m_MaskBonesForKinect.push_back("Foot.L.001");
-	m_MaskBonesForKinect.push_back("Foot.R.001");
+	//m_MaskBonesForKinect.push_back("Foot.L.001");
+	//m_MaskBonesForKinect.push_back("Foot.R.001");
 	m_MaskBonesForKinect.push_back("Head");
 	m_MaskBonesForKinect.push_back("Hand.L");
 	m_MaskBonesForKinect.push_back("Hand.R");

@@ -166,6 +166,7 @@
     <ClCompile Include="Blayne_Utilities.cpp" />
     <ClCompile Include="bMesh.cpp" />
     <ClCompile Include="bTexture.cpp" />
+    <ClCompile Include="KinectTextureTechnique.cpp" />
     <ClCompile Include="vboindexer.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -195,6 +196,7 @@
     <ClInclude Include="Blayne_Callbacks.h" />
     <ClInclude Include="bMesh.h" />
     <ClInclude Include="bTexture.h" />
+    <ClInclude Include="KinectTextureTechnique.h" />
     <ClInclude Include="vboindexer.hpp" />
   </ItemGroup>
   <ItemGroup>

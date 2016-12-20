@@ -21,15 +21,29 @@
 #include "Blayne_Utilities.h" // Includes Blayne_Types.h
 #include "Blayne_Pipeline.h"
 
+struct BasicMeshEntry {
+	BasicMeshEntry()
+	{
+		NumIndices = 0;
+		BaseVertex = 0;
+		BaseIndex = 0;
+		MaterialIndex = INVALID_MATERIAL;
+	}
 
+	unsigned int NumIndices;
+	unsigned int BaseVertex;
+	unsigned int BaseIndex;
+	unsigned int MaterialIndex;
+};
 
 class BasicMesh
 {
 public:
 	BasicMesh();
-
+	BasicMesh(const BasicMesh* MeshToBeDeepCopied);
 	~BasicMesh();
 
+	bool CreatePrism(GLfloat length, const std::string& Filename);
 	bool LoadMesh(const std::string& Filename);
 
 	void Render();
@@ -37,7 +51,18 @@ public:
 	void Render(unsigned int NumInstances, const glm::mat4* WVPMats, const glm::mat4* WorldMats);
 
 	Orientation& GetOrientation() { return m_orientation; }
+	Orientation GetOrientation() const { return m_orientation; }
 
+	std::string ObjName = "";
+	
+	std::vector<BasicMeshEntry> getBasicMeshEntries() const { return m_Entries; };
+	std::vector<Texture*> getTextures() const { return m_Textures; };
+
+	vector<glm::vec3> m_Positions;
+	vector<glm::vec3> m_Normals;
+	vector<glm::vec2> m_TexCoords;
+	vector<unsigned int> m_Indices;
+	
 private:
 	bool InitFromScene(const aiScene* pScene, const std::string& Filename);
 	void InitMesh(const aiMesh* paiMesh,
@@ -68,21 +93,6 @@ private:
 
 	GLuint m_VAO;
 	GLuint m_Buffers[NUM_VBS];
-
-	struct BasicMeshEntry {
-		BasicMeshEntry()
-		{
-			NumIndices = 0;
-			BaseVertex = 0;
-			BaseIndex = 0;
-			MaterialIndex = INVALID_MATERIAL;
-		}
-
-		unsigned int NumIndices;
-		unsigned int BaseVertex;
-		unsigned int BaseIndex;
-		unsigned int MaterialIndex;
-	};
 
 	std::vector<BasicMeshEntry> m_Entries;
 	std::vector<Texture*> m_Textures;

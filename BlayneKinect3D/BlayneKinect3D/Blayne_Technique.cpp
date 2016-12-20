@@ -77,7 +77,41 @@ bool Technique::AddShader(GLenum ShaderType, const char* pFilename)
 		return false;
 	}
 
+	GLenum err;
+	err = glGetError();
+	if (err != GL_NO_ERROR)
+	{
+		cerr << "OpenGL error (AddShader): " << err << endl;
+		string error;
+		switch (err) {
+		case GL_INVALID_OPERATION:      error = "INVALID_OPERATION";      break;
+		case GL_INVALID_ENUM:           error = "INVALID_ENUM";           break;
+		case GL_INVALID_VALUE:          error = "INVALID_VALUE";          break;
+		case GL_OUT_OF_MEMORY:          error = "OUT_OF_MEMORY";          break;
+		case GL_INVALID_FRAMEBUFFER_OPERATION:  error = "INVALID_FRAMEBUFFER_OPERATION";  break;
+		}
+
+		cerr << "GL_" << error.c_str() << " - " << endl;
+	}
+
 	glAttachShader(m_shaderProg, ShaderObj);
+
+	err = 0;
+	err = glGetError();
+	if (err != GL_NO_ERROR)
+	{
+		cerr << "OpenGL error (AddShader): " << err << endl;
+		string error;
+		switch (err) {
+		case GL_INVALID_OPERATION:      error = "INVALID_OPERATION";      break;
+		case GL_INVALID_ENUM:           error = "INVALID_ENUM";           break;
+		case GL_INVALID_VALUE:          error = "INVALID_VALUE";          break;
+		case GL_OUT_OF_MEMORY:          error = "OUT_OF_MEMORY";          break;
+		case GL_INVALID_FRAMEBUFFER_OPERATION:  error = "INVALID_FRAMEBUFFER_OPERATION";  break;
+		}
+
+		cerr << "GL_" << error.c_str() << " - " << endl;
+	}
 
 	return true;
 }
@@ -95,6 +129,7 @@ bool Technique::Finalize()
 	if (Success == 0) {
 		glGetProgramInfoLog(m_shaderProg, sizeof(ErrorLog), NULL, ErrorLog);
 		fprintf(stderr, "Error linking shader program: '%s'\n", ErrorLog);
+		printf("Error linking shader program: '%s'\n", ErrorLog);
 		return false;
 	}
 
@@ -103,7 +138,8 @@ bool Technique::Finalize()
 	if (!Success) {
 		glGetProgramInfoLog(m_shaderProg, sizeof(ErrorLog), NULL, ErrorLog);
 		fprintf(stderr, "Invalid shader program: '%s'\n", ErrorLog);
-		//   return false;
+		printf("Error linking shader program: '%s'\n", ErrorLog);
+		return false;
 	}
 
 	// Delete the intermediate shader objects that have been added to the program
@@ -116,7 +152,7 @@ bool Technique::Finalize()
 	err = glGetError();
 	if (err != GL_NO_ERROR)
 	{
-		cerr << "OpenGL error: " << err << endl;
+		cerr << "OpenGL error (Finalize): " << err << endl;
 		string error;
 		switch (err) {
 		case GL_INVALID_OPERATION:      error = "INVALID_OPERATION";      break;

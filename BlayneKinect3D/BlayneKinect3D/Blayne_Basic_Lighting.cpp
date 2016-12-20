@@ -49,31 +49,6 @@ BlayneBasicLightingTechnique::BlayneBasicLightingTechnique()
 {
 }
 
-bool BlayneBasicLightingTechnique::Init2()
-{
-	if (!Technique::Init()) {
-		return false;
-	}
-	if (!AddShader(GL_VERTEX_SHADER, "Shaders/SimpleVertexShader.vs")) {
-		return false;
-	}
-
-
-	if (!AddShader(GL_FRAGMENT_SHADER, "Shaders/TextureFragmentShader.fs")) {
-		return false;
-	}
-
-	if (!Finalize()) {
-		return false;
-	}
-
-	m_WVPLocation = GetUniformLocation("MVP");
-	m_WorldMatrixLocation = GetUniformLocation("MVP");
-	m_colorTextureLocation = GetUniformLocation("myTextureSampler");
-
-	return true;
-}
-
 bool BlayneBasicLightingTechnique::Init()
 {
 	if (!Technique::Init()) {

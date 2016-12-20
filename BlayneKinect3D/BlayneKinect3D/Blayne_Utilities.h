@@ -11,9 +11,146 @@
 #include <string.h>
 #include <assert.h>
 
+#include "Blayne_Keys.h"
 #include "Blayne_Types.h"
 
 using namespace std;
+
+static const char* BlayneKeyToStr[] =
+{
+	"Space",
+	"Apostrophe",
+	"Plus",
+	"Comma",
+	"Minus",
+	"Period",
+	"Slash",
+	"0",
+	"1",
+	"2",
+	"3",
+	"4",
+	"5",
+	"6",
+	"7",
+	"8",
+	"9",
+	"Semicolon",
+	"Equal Sign",
+	"A",
+	"B",
+	"C",
+	"D",
+	"E",
+	"F",
+	"G",
+	"H",
+	"I",
+	"J",
+	"K",
+	"L",
+	"M",
+	"N",
+	"O",
+	"P",
+	"Q",
+	"R",
+	"S",
+	"T",
+	"U",
+	"V",
+	"W",
+	"X",
+	"Y",
+	"Z",
+	"Left Bracket",
+	"Backslash",
+	"Right Bracket",
+	"a",
+	"b",
+	"c",
+	"d",
+	"e",
+	"f",
+	"g",
+	"h",
+	"i",
+	"j",
+	"k",
+	"l",
+	"m",
+	"n",
+	"o",
+	"p",
+	"q",
+	"r",
+	"s",
+	"t",
+	"u",
+	"v",
+	"w",
+	"x",
+	"y",
+	"z",
+	"Escape",
+	"Enter",
+	"Tab",
+	"Backspace",
+	"Insert",
+	"Delete",
+	"Right",
+	"Left",
+	"Down",
+	"Up",
+	"Page up",
+	"Page down",
+	"Home",
+	"End",
+	"F1",
+	"F2",
+	"F3",
+	"F4",
+	"F5",
+	"F6",
+	"F7",
+	"F8",
+	"F9",
+	"F10",
+	"F11",
+	"F12",
+	"Undefined"
+};
+
+static const char* BlayneMouseButtonToStr[] =
+{
+	"LMB",
+	"MMB",
+	"RMB",
+	"UndefinedMB"
+};
+
+static const char* BlayneButtonStateToStr[] =
+{
+	"Press",
+	"Release"
+};
+
+static const char * getBlayneKeyToStr(int enumVal)
+{
+	return BlayneKeyToStr[enumVal];
+}
+
+static const char * getBlayneMouseButtonToStr(int enumVal)
+{
+	return BlayneMouseButtonToStr[enumVal];
+}
+
+static const char * getBlayneButtonStateToStr(int enumVal)
+{
+	return BlayneButtonStateToStr[enumVal];
+}
+
+
 
 bool ReadFile(const char* fileName, string& outFile);
 

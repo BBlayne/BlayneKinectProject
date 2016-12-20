@@ -8,6 +8,8 @@
 #include "Blayne_Engine_Common.h"
 #include "Blayne_Types.h"
 
+#include "Blayne_Basic_Mesh.h"
+
 #include <map>
 #include <vector>
 #include "GL\freeglut.h"
@@ -45,6 +47,8 @@ public:
 	void PadImportedAnimationFrames(aiScene* _scene);
 	void CopyAnimationAtFrame(int frame);
 
+	std::map<std::string, glm::uint> getBoneMapping() const { return this->m_BoneMapping; }
+
 	glm::uint NumBones() const
 	{
 		return m_NumBones;
@@ -73,7 +77,8 @@ public:
 	void PrintVector4(glm::vec4 _vector);
 	void PrintVector3(glm::vec3 _vector);
 	std::string FindClosestBone(const aiMesh* pMesh, glm::vec3 _pos);
-	void createSkeleton(const aiMesh* pMesh);
+	void createSkeleton();
+	void createSkeleton(BasicMesh* mesh);
 	const int ID;
 	std::vector<skeleton_mesh> skeleton;
 	glm::vec3 position;
@@ -86,7 +91,7 @@ public:
 	aiScene* customScene;
 	std::vector<std::string> m_mask;
 	std::map<std::string, Blayne_Types::Blayne_JointOrientations> m_JointNameOrientations;
-
+	std::vector<BasicMesh*> m_BasicMeshSkeleton;
 private:
 	#define NUM_BONES_PER_VEREX 4
 	static int currID;
@@ -205,7 +210,6 @@ private:
 	void FindBoneAtFrame(const std::string BoneToFind, const aiNode* pNode, const glm::mat4& ParentTransform,
 		glm::mat4& matrixToReturn, aiScene* _scene, int frame);
 	void UpdateSkeleton(const aiMesh* pMesh);
-	void UpdateSkeletonAtFrame(int frame, const aiMesh* pMesh);
 	void FindLocalPosition(const std::string BoneToFind, const aiNode* pNode, const glm::mat4& ParentTransform, glm::vec3& _pos);
 	void FindLocalRotation(const std::string BoneToFind, const aiNode* pNode, const glm::mat4& ParentTransform, glm::quat& _rot);
 	void FindLocalScale(const std::string BoneToFind, const aiNode* pNode, const glm::mat4& ParentTransform, glm::vec3& _scale);

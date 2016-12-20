@@ -548,16 +548,13 @@ void bMesh::LoadBones(glm::uint MeshIndex, const aiMesh* pMesh, std::vector<Vert
 			BoneIndex = m_NumBones;
 			m_NumBones++;
 			BoneInfo bi;			
-			if (BoneName == "Hips")
-			{
-				//printf("Hips. #%d\n", BoneIndex);
-			}
 			m_BoneInfo.push_back(bi);			
 		}
 		else {
 			BoneIndex = m_BoneMapping[BoneName];
 		}
 
+		// Dumb way of inserting into a std::map
 		m_BoneMapping[BoneName] = BoneIndex;
 		CopyaiMat(&pMesh->mBones[i]->mOffsetMatrix, m_BoneInfo[BoneIndex].BoneOffset);
 
@@ -900,10 +897,13 @@ glm::vec3 bMesh::FindBonePosition(const std::string NodeName)
 	
 	glm::mat4 myMatrix = glm::mat4(1.0);
 	FindBone(NodeName, this->m_pScene->mRootNode, glm::mat4(1.0), myMatrix);
+	//glm::vec3 pos;
+	//glm::decompose(myMatrix, glm::vec3(), glm::quat(), pos, glm::vec3(), glm::vec4());
+
 	glm::vec3 myPos;
 	myPos.x = myMatrix[3][0];
 	myPos.y = myMatrix[3][1];
-	myPos.z = 0;
+	myPos.z = myMatrix[3][2];
 
 	return myPos;
 }
@@ -914,17 +914,19 @@ void bMesh::FindBone(const std::string BoneToFind, const aiNode* pNode, const gl
 	std::string NodeName(pNode->mName.data);
 	glm::mat4 NodeTransformation = glm::mat4();
 	CopyaiMat(&pNode->mTransformation, NodeTransformation);
+	const glm::mat4 _nodeTransform = NodeTransformation;
 
 	if (NodeName.compare(BoneToFind) == 0)
 	{
 		glm::uint BoneIndex = m_BoneMapping[NodeName];
-		matrixToReturn = ParentTransform * NodeTransformation;
+		const glm::mat4 mat = ParentTransform * _nodeTransform;
+		matrixToReturn = mat;
 		
 	}
 	else
 	{
 		for (glm::uint i = 0; i < pNode->mNumChildren; i++) {
-			FindBone(BoneToFind, pNode->mChildren[i], ParentTransform * NodeTransformation, matrixToReturn);
+			FindBone(BoneToFind, pNode->mChildren[i], ParentTransform * _nodeTransform, matrixToReturn);
 		}
 	}
 }
@@ -945,14 +947,96 @@ glm::vec3 FindMidPoint(glm::vec3 ptA, glm::vec3 ptB)
 	return mid;
 }
 
-void bMesh::createSkeleton(const aiMesh* pMesh)
+//createSkeleton
+void bMesh::createSkeleton(BasicMesh* mesh)
 {
 	printf("Creating Skeleton \n");
-	for (glm::uint i = 0; i < pMesh->mNumBones; i++)
+	const aiMesh* _aiMesh = this->m_pScene->mMeshes[0];
+	for (glm::uint i = 0; i < _aiMesh->mNumBones; i++)
 	{
-		std::string BoneName(pMesh->mBones[i]->mName.data);
+		
+		std::string BoneName(_aiMesh->mBones[i]->mName.data);
 		// Leaf node?
-		int numChildren = this->getScene()->mRootNode->FindNode(BoneName.c_str())->mNumChildren;
+		int numChildren = this->m_pScene->mRootNode->FindNode(BoneName.c_str())->mNumChildren;
+		//printf("numChildren of %s is %d \n", BoneName, numChildren);
+		if (BoneName.compare("Root") == 0 || BoneName.compare("Armature") == 0 || numChildren == 0)
+		{
+			continue;
+		}
+		// Reasonably sure each bone we iterate over has exactly one child.
+		// But would probably work if there were many children.
+		// Might not work for offset child bones?
+		
+		
+		std::string TailBoneName(this->m_pScene->mRootNode->FindNode(BoneName.c_str())->mChildren[0]->mName.data);
+		if (m_BoneMapping.find(TailBoneName) == m_BoneMapping.end())
+		{
+			continue;
+		}
+
+		if (TailBoneName == "Thumb.R" || TailBoneName == "Thumb.L" || TailBoneName == "Toes.L" || TailBoneName == "Toes.R")
+		{
+			continue;
+		}
+
+		// Head Position
+		glm::vec3 head = FindBonePosition(BoneName);
+		// Tail Position
+		glm::vec3 tail = FindBonePosition(TailBoneName);
+		float length = glm::distance(tail, head);
+		//float length = 1;
+		printf("Length of %s to %s is %.3f\n", BoneName, TailBoneName, length);
+		//bMesh* _bone = new bMesh(length / 2);
+		Orientation boneOrientation;
+		float scaleFactor = 5;
+		printf("scaleFactor: %.3f\n", scaleFactor);
+		//_bone->position = FindMidPoint(head, tail);
+		boneOrientation.m_translation = FindMidPoint(head, tail);
+		glm::mat4 mMatrix = glm::mat4(1.0);
+		FindBone(BoneName, this->m_pScene->mRootNode, glm::mat4(1.0), mMatrix);
+		
+		glm::vec3 scale = glm::vec3(1.0);
+		glm::quat rot;
+		glm::vec3 trans;
+		glm::vec4 per;
+		glm::uint BoneIndex = m_BoneMapping[BoneName];
+		glm::decompose(mMatrix, scale, rot, trans, trans, per);
+		rot = glm::conjugate(rot);
+
+		boneOrientation.m_rotation.x = glm::degrees(glm::eulerAngles(rot)).x;
+		boneOrientation.m_rotation.y = -glm::degrees(glm::eulerAngles(rot)).y;
+		boneOrientation.m_rotation.z = -glm::degrees(glm::eulerAngles(rot)).z;
+		boneOrientation.m_scale = glm::vec3();
+
+		//BasicMesh* skeletonBone = new BasicMesh(mesh);
+		BasicMesh* skeletonBone = new BasicMesh();
+		if (!skeletonBone->CreatePrism(length, "StandardCube.fbx"))
+		{
+			printf("Error Creating prism. \n");
+			return;
+		}
+		skeletonBone->GetOrientation().m_scale = glm::vec3(0.125f, 0.125f, 0.125f);
+		skeletonBone->GetOrientation().m_translation = boneOrientation.m_translation;
+		skeletonBone->GetOrientation().m_rotation = boneOrientation.m_rotation;
+
+		Orientation& tempOrient = skeletonBone->GetOrientation();
+		boneOrientation.m_scale = glm::vec3(tempOrient.m_scale.x, (tempOrient.m_scale.y * scaleFactor), tempOrient.m_scale.z);
+		tempOrient = boneOrientation;
+		
+		skeletonBone->ObjName = BoneName;
+		m_BasicMeshSkeleton.push_back(skeletonBone);
+	}
+}
+
+void bMesh::createSkeleton()
+{
+	printf("Creating Skeleton \n");
+	const aiMesh* _aiMesh = this->m_pScene->mMeshes[0];
+	for (glm::uint i = 0; i < _aiMesh->mNumBones; i++)
+	{
+		std::string BoneName(_aiMesh->mBones[i]->mName.data);
+		// Leaf node?
+		int numChildren = this->m_pScene->mRootNode->FindNode(BoneName.c_str())->mNumChildren;
 		//printf("numChildren of %s is %d \n", BoneName, numChildren);
 		if (BoneName.compare("Root") == 0 || BoneName.compare("Armature") == 0 || numChildren == 0)
 		{
@@ -960,12 +1044,13 @@ void bMesh::createSkeleton(const aiMesh* pMesh)
 		}
 
 		// Temporary Head Position
-		//_bone->position = FindBonePosition(BoneName);
 		glm::vec3 head = FindBonePosition(BoneName);
 		// Temporary tails
 		// Reasonably sure each bone we iterate over has exactly one child.
 		// But would probably work if there were many children.
-		std::string TailBoneName(this->getScene()->mRootNode->FindNode(BoneName.c_str())->mChildren[0]->mName.data);
+		// Might not work for offset child bones?
+		std::string TailBoneName(this->m_pScene->mRootNode->FindNode(BoneName.c_str())->mChildren[0]->mName.data);
+
 		glm::vec3 tail = FindBonePosition(TailBoneName);
 		float length = glm::distance(tail, head);
 		printf("Length of %s to %s is %.3f\n", BoneName, TailBoneName, length);
@@ -988,7 +1073,6 @@ void bMesh::createSkeleton(const aiMesh* pMesh)
 		skeleton_mesh skeleton_pair(_bone, BoneName);
 		skeleton.push_back(skeleton_pair);
 	}
-
 }
 
 void bMesh::rotateBoneAtFrame(std::string boneName, glm::quat _newRot, int frame, aiScene* _scene)
@@ -1713,7 +1797,11 @@ void bMesh::KinectReadNodeHeirarchy(const aiNode* pNode,
 	it = std::find(m_mask.begin(), m_mask.end(), NodeName);
 	if (it != m_mask.end())
 	{
-		//printf("Mapping Kinect Joint to: %s \n", NodeName.c_str());
+		if (NodeName == "Foot.L" || NodeName == "Foot.R")
+		{
+			printf("Mapping Kinect Joint to: %s \n", NodeName.c_str());
+		}
+		
 		glm::mat4 GlobalKinectRotation = glm::mat4(1.0);
 		glm::quat _rotation = m_JointNameOrientations[NodeName].m_orientation;
 		glm::quat parentRotation;
