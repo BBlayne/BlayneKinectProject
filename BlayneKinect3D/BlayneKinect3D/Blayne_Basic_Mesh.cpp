@@ -113,43 +113,66 @@ bool BasicMesh::CreatePrism(GLfloat length, const std::string& Filename)
 	// Create the buffers for the vertices attributes
 	glGenBuffers(ARRAY_SIZE_IN_ELEMENTS(m_Buffers), m_Buffers);
 
+	/*
+	-1.000000, -length, 1.000000,    // 1
+	-1.000000, length, 1.000000,    // 2
+	-1.000000, -length, -1.000000, // 3
+	-1.000000, length, -1.000000,	// 4
+	1.000000, -length, 1.000000,	// 5
+	1.000000, length, 1.000000,	// 6
+	1.000000, -length, -1.000000, // 7
+	1.000000, length, -1.000000,	// 8
+	*/
+
 	GLfloat g_vertex_buffer_data[] = {
-		-1.0f,-length,-1.0f,
-		-1.0f,-length, 1.0f,
-		-1.0f, length, 1.0f,
-		1.0f, length,-1.0f,
-		-1.0f,-length,-1.0f,
-		-1.0f, length,-1.0f,
-		1.0f,-length, 1.0f,
-		-1.0f,-length,-1.0f,
-		1.0f,-length,-1.0f,
-		1.0f, length,-1.0f,
-		1.0f,-length,-1.0f,
-		-1.0f,-length,-1.0f,
-		-1.0f,-length,-1.0f,
-		-1.0f, length, 1.0f,
-		-1.0f, length,-1.0f,
-		1.0f,-length, 1.0f,
-		-1.0f,-length, 1.0f,
-		-1.0f,-length,-1.0f,
-		-1.0f, length, 1.0f,
-		-1.0f,-length, 1.0f,
-		1.0f,-length, 1.0f,
-		1.0f, length, 1.0f,
-		1.0f,-length,-1.0f,
-		1.0f, length,-1.0f,
-		1.0f,-length,-1.0f,
-		1.0f, length, 1.0f,
-		1.0f,-length, 1.0f,
-		1.0f, length, 1.0f,
-		1.0f, length,-1.0f,
-		-1.0f, length,-1.0f,
-		1.0f, length, 1.0f,
-		-1.0f, length,-1.0f,
-		-1.0f, length, 1.0f,
-		1.0f, length, 1.0f,
-		-1.0f, length, 1.0f,
-		1.0f,-length, 1.0f
+		// 1
+		-1.000000, length, 1.000000,    // 2
+		-1.000000, -length, -1.000000, // 3
+		-1.000000, -length, 1.000000,    // 1
+		// 2
+		-1.000000, length, -1.000000,	// 4
+		1.000000, -length, -1.000000, // 7
+		-1.000000, -length, -1.000000, // 3
+		// 3
+		1.000000, length, -1.000000,	// 8
+		1.000000, -length, 1.000000,	// 5
+		1.000000, -length, -1.000000, // 7
+		// 4
+		1.000000, length, 1.000000,	// 6
+		-1.000000, -length, 1.000000,    // 1
+		1.000000, -length, 1.000000,	// 5
+		// 5
+		1.000000, -length, -1.000000, // 7
+		-1.000000, -length, 1.000000,    // 1
+		-1.000000, -length, -1.000000, // 3
+		// 6
+		-1.000000, length, -1.000000,	// 4
+		1.000000, length, 1.000000,	// 6
+		1.000000, length, -1.000000,	// 8
+		// 7
+		-1.000000, length, 1.000000,    // 2
+		-1.000000, length, -1.000000,	// 4
+		-1.000000, -length, -1.000000, // 3
+		// 8
+		-1.000000, length, -1.000000,	// 4
+		1.000000, length, -1.000000,	// 8
+		1.000000, -length, -1.000000, // 7
+		// 9
+		1.000000, length, -1.000000,	// 8
+		1.000000, length, 1.000000,	// 6
+		1.000000, -length, 1.000000,	// 5
+		// 10
+		1.000000, length, 1.000000,	// 6
+		-1.000000, length, 1.000000,    // 2
+		-1.000000, -length, 1.000000,    // 1
+		// 11
+		1.000000, -length, -1.000000, // 7
+		1.000000, -length, 1.000000,	// 5
+		-1.000000, -length, 1.000000,    // 1
+		// 12
+		-1.000000, length, -1.000000,	// 4
+		-1.000000, length, 1.000000,    // 2
+		1.000000, length, 1.000000	// 6
 	};
 
 	// One color for each vertex. They were generated randomly.
@@ -203,22 +226,55 @@ bool BasicMesh::CreatePrism(GLfloat length, const std::string& Filename)
 
 	// Two UV coordinatesfor each vertex. They were created withe Blender.
 	static const GLfloat g_uv_buffer_data[] = {
-		0.000087,0.498520,
-		0.001073,0.248811,
-		0.999913,0.499507,
-		0.500492,0.000087,
-		0.750202,0.000087,
-		0.750203,0.249797,
-		0.500492,0.249797,
-		0.999913,0.249797,
-		0.750203,0.499508,
-		0.750203,0.749218,
-		0.500926,0.750643,
-		0.500492,0.499508,
-		0.249359,0.500619,
-		0.250781,0.249798
+		// 1
+		0.7500, 1 - 0.9999, // 1
+		0.5000, 1 - 0.7500, // 2
+		0.7500, 1 - 0.7500, // 3
+		// 2
+		0.5000, 1 - 0.9999, // 4
+		0.2500, 1 - 0.7500, // 5
+		0.5000, 1 - 0.7500, // 
+		// 3
+		0.2500, 1 - 0.9999, // 6
+		0.0001, 1 - 0.7500, // 7
+		0.2500, 1 - 0.7500, // 5
+		// 4
+		0.2500, 1 - 0.2500, // 8
+		0.5000, 1 - 0.5000, // 9
+		0.2500, 1 - 0.5000, // 10
+		// 5
+		0.2500, 1 - 0.7500, // 5
+		0.5000, 1 - 0.5000, // 9
+		0.5000, 1 - 0.7500, // 2
+		// 6
+		0.5000, 1 - 0.0001, // 11
+		0.2500, 1 - 0.2500, // 8
+		0.2500, 1 - 0.0001, // 12
+		// 7
+		0.7500, 1 - 0.9999, // 1
+		0.5000, 1 - 0.9999, // 4
+		0.5000, 1 - 0.7500, // 2
+		// 8
+		0.5000, 1 - 0.9999, // 4
+		0.2500, 1 - 0.9999, // 6
+		0.2500, 1 - 0.7500, // 5
+		// 9
+		0.2500, 1 - 0.9999, // 6
+		0.0001, 1 - 0.9999, // 13
+		0.0001, 1 - 0.7500, // 7
+		// 10
+		0.2500, 1 - 0.2500, // 8
+		0.5000, 1 - 0.2500, // 14
+		0.5000, 1 - 0.5000, // 9
+		// 11
+		0.2500, 1 - 0.7500, // 5
+		0.2500, 1 - 0.5000, // 10
+		0.5000, 1 - 0.5000, // 9
+		// 12
+		0.5000, 1 - 0.0001, // 11
+		0.5000, 1 - 0.2500, // 14
+		0.2500, 1 - 0.2500  // 8
 	};
-
 
 	std::vector<GLfloat> vertices(g_vertex_buffer_data,
 		g_vertex_buffer_data + sizeof(g_vertex_buffer_data) / sizeof(*g_vertex_buffer_data));
@@ -255,17 +311,17 @@ bool BasicMesh::CreatePrism(GLfloat length, const std::string& Filename)
 	std::vector<glm::uint> Indices;
 	BasicMeshEntry entry;
 	m_Entries.push_back(entry);
-	Texture* tex = new Texture(GL_TEXTURE_2D, std::string("uvs.png").c_str());
+	Texture* tex = new Texture(GL_TEXTURE_2D, std::string("CubeUVs - Copy.png").c_str());
 	m_Textures.push_back(tex);
 
 	if (!m_Textures[0]->Load()) {
-		printf("Error loading texture '%s'\n", std::string("uvs.png").c_str());
+		printf("Error loading texture '%s'\n", std::string("CubeUVs - Copy.png").c_str());
 		delete m_Textures[0];
 		m_Textures[0] = NULL;
 		return false;
 	}
 	else {
-		printf("%d - loaded texture '%s'\n", 0, std::string("uvs.png").c_str());
+		printf("%d - loaded texture '%s'\n", 0, std::string("CubeUVs - Copy.png").c_str());
 	}
 
 	// Populate the index buffer
@@ -504,6 +560,10 @@ bool BasicMesh::InitMaterials(const aiScene* pScene, const string& Filename)
 					printf("Loaded texture '%s'\n", FullPath.c_str());
 				}
 			}
+		}
+		else
+		{
+			printf("Error: Texture count is zero.\n");
 		}
 	}
 

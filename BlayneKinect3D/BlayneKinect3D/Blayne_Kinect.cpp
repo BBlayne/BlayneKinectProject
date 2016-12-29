@@ -466,7 +466,9 @@ void BlayneKinect::TickForJointsInfo(float deltaTime)
 		hr = bodyFrame->GetAndRefreshBodyData(_countof(bodies), bodies);
 		if (FAILED(hr))
 		{
-			printf("Oh no! Failed to refresh body data!\n");
+			if (!isSilent)
+				printf("Oh no! Failed to refresh body data!\n");
+
 			return;
 		}
 
@@ -480,7 +482,8 @@ void BlayneKinect::TickForJointsInfo(float deltaTime)
 	}
 	else
 	{
-		printf("Oh no! m_bodyFrameReader is null!\n");
+		if (!isSilent)
+			printf("Oh no! m_bodyFrameReader is null!\n");
 	}
 
 }
@@ -503,7 +506,8 @@ void BlayneKinect::processMaskedBodies(const unsigned int &bodyCount, IBody **bo
 		JointOrientation jointRotations[JointType_Count];
 		hr = body->GetJointOrientations(_countof(joints), jointRotations);
 		if (FAILED(hr)) {
-			printf("Failed to get joint orientations... \n");
+			if (!isSilent)
+				printf("Failed to get joint orientations... \n");
 			return;
 		}
 
@@ -575,7 +579,8 @@ void BlayneKinect::processBodies(const unsigned int &bodyCount, IBody **bodies)
 		JointOrientation jointRotations[JointType_Count];
 		hr = body->GetJointOrientations(_countof(joints), jointRotations);
 		if (FAILED(hr)) {
-			printf("Failed to get joint orientations... \n");
+			if (!isSilent)
+				printf("Failed to get joint orientations... \n");
 			return;
 		}
 
@@ -592,14 +597,16 @@ void BlayneKinect::processBodies(const unsigned int &bodyCount, IBody **bodies)
 				hr = m_coordinateMapper->MapCameraPointToColorSpace(pos, &coord);
 				if (FAILED(hr))
 				{
-					printf("Oh no! Failed map the CameraSpacePoint to color space!\n");
+					if (!isSilent)
+						printf("Oh no! Failed map the CameraSpacePoint to color space!\n");
 					return;
 				}
 
 				hr = m_coordinateMapper->MapCameraPointToDepthSpace(pos, &depthCoord);
 				if (FAILED(hr))
 				{
-					printf("Oh no! Failed map the CameraSpacePoint to Depth Space!\n");
+					if (!isSilent)
+						printf("Oh no! Failed map the CameraSpacePoint to Depth Space!\n");
 					return;
 				}
 
@@ -676,7 +683,8 @@ void BlayneKinect::processBodies(const unsigned int &bodyCount, IBody **bodies)
 	}
 	else
 	{
-		printf("No bodies are being tracked.... \n");
+		if (!isSilent)
+			printf("No bodies are being tracked.... \n");
 	}
 }
 

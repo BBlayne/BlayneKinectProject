@@ -85,7 +85,8 @@ public:
 	glm::mat4 mTransform;
 	glm::mat4 rotation;
 	glm::mat4 scale;
-	bool createPrism(double length);
+	bool CreatePrism(GLfloat length);
+	bool CreatePrism(GLfloat length, const std::string& Filename);
 	void RenderPrism();
 	void bMesh::InsertKeyFrame(glm::uint frame, int _animation, const aiNode* pNode, aiScene* _scene);
 	aiScene* customScene;

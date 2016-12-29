@@ -84,6 +84,7 @@ public:
 private:
 	int COLOUR_WIDTH, COLOUR_HEIGHT;
 	int screenWidth, screenHeight;
+	bool isSilent = true;
 
 	//void drawCircle(int x, int y, int radius, uint8 R, uint8 G, uint8 B, int _space);
 	//pointer to buffer that contains pixels that get pushed to the screen
