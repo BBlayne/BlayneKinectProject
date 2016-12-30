@@ -76,9 +76,10 @@ public:
 	void PrintAiMatrix(aiMatrix4x4 matrix);
 	void PrintVector4(glm::vec4 _vector);
 	void PrintVector3(glm::vec3 _vector);
-	std::string FindClosestBone(const aiMesh* pMesh, glm::vec3 _pos);
+	std::string FindClosestBone(glm::vec3 _pos);
 	void createSkeleton();
 	void createSkeleton(BasicMesh* mesh);
+	void createSkeletonRecursively();
 	const int ID;
 	std::vector<skeleton_mesh> skeleton;
 	glm::vec3 position;
@@ -87,6 +88,7 @@ public:
 	glm::mat4 scale;
 	bool CreatePrism(GLfloat length);
 	bool CreatePrism(GLfloat length, const std::string& Filename);
+	bool CreatePrism(GLfloat pointA, GLfloat pointB, const std::string& Filename);
 	void RenderPrism();
 	void bMesh::InsertKeyFrame(glm::uint frame, int _animation, const aiNode* pNode, aiScene* _scene);
 	aiScene* customScene;
@@ -164,6 +166,10 @@ private:
 		std::vector<unsigned int>& Indices);
 	void LoadBones(glm::uint MeshIndex, const aiMesh* paiMesh, std::vector<VertexBoneData>& Bones);
 	bool InitMaterials(const aiScene* pScene, const std::string& Filename);
+	void ReadNodeTreeToCreateBoneMesh(const aiNode* pNode);
+	void FindNode(const std::string NodeToFind, const aiNode* pNode, const glm::mat4& ParentTransform,
+		glm::mat4& matrixToReturn);
+	glm::vec3 FindNodePosition(const std::string NodeName);
 	aiMatrix4x4 fromMatrix3x3(const aiMatrix3x3& AssimpMatrix);
 	void Clear();
 
@@ -208,8 +214,6 @@ private:
 	glm::vec3 FindBonePosition(const std::string NodeName);
 	void FindBone(const std::string BoneToFind, const aiNode* pNode, const glm::mat4& ParentTransform,
 		glm::mat4& matrixToReturn);
-	void FindBoneAtFrame(const std::string BoneToFind, const aiNode* pNode, const glm::mat4& ParentTransform,
-		glm::mat4& matrixToReturn, aiScene* _scene, int frame);
 	void UpdateSkeleton(const aiMesh* pMesh);
 	void FindLocalPosition(const std::string BoneToFind, const aiNode* pNode, const glm::mat4& ParentTransform, glm::vec3& _pos);
 	void FindLocalRotation(const std::string BoneToFind, const aiNode* pNode, const glm::mat4& ParentTransform, glm::quat& _rot);

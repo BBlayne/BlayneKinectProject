@@ -167,6 +167,7 @@
     <ClCompile Include="bMesh.cpp" />
     <ClCompile Include="bTexture.cpp" />
     <ClCompile Include="KinectTextureTechnique.cpp" />
+    <ClCompile Include="PickingTechnique.cpp" />
     <ClCompile Include="vboindexer.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -197,6 +198,7 @@
     <ClInclude Include="bMesh.h" />
     <ClInclude Include="bTexture.h" />
     <ClInclude Include="KinectTextureTechnique.h" />
+    <ClInclude Include="PickingTechnique.h" />
     <ClInclude Include="vboindexer.hpp" />
   </ItemGroup>
   <ItemGroup>
@@ -204,6 +206,8 @@
     <None Include="Shaders\basic_lighting.fs" />
     <None Include="Shaders\basic_lighting.vs" />
     <None Include="Shaders\Passthrough.vertexshader" />
+    <None Include="Shaders\Picking.fragmentshader" />
+    <None Include="Shaders\Picking.vertexshader" />
     <None Include="Shaders\SimpleVertexShader.vs" />
     <None Include="Shaders\TextureFragmentShader.fs" />
     <None Include="Shaders\WobblyTexture.fragmentshader" />

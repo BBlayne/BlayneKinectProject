@@ -48,6 +48,23 @@ bool Blayne_ATB::Init()
 	return ret;
 }
 
+static int BlayneModifierToATBModifier(BLAYNE_MODIFIER BlayneMod)
+{
+	switch (BlayneMod)
+	{
+	case BLAYNE_MOD_NONE:
+		return TW_KMOD_NONE;
+	case BLAYNE_MOD_SHIFT:
+		return TW_KMOD_SHIFT;
+	case BLAYNE_MOD_CTRL:
+		return TW_KMOD_CTRL;
+	case BLAYNE_MOD_ALT:
+		return TW_KMOD_ALT;
+	default:
+		OGLDEV_ERROR("Unimplemented OGLDEV to ATB Modifier");
+	}
+}
+
 static int BlayneKeyToATBKey(BLAYNE_KEY BlayneKey)
 {
 	if (BlayneKey >= BLAYNE_KEY_SPACE && BlayneKey <= BLAYNE_KEY_RIGHT_BRACKET) {
@@ -110,6 +127,12 @@ static int BlayneKeyToATBKey(BLAYNE_KEY BlayneKey)
 			return TW_KEY_F11;
 		case BLAYNE_KEY_F12:
 			return TW_KEY_F12;
+		case BLAYNE_KEY_LEFT_ALT:
+			return TW_KMOD_ALT;
+		case BLAYNE_KEY_LSHIFT:
+			return TW_KMOD_SHIFT;
+		case BLAYNE_KEY_LEFT_CTRL:
+			return TW_KMOD_CTRL;
 		default:
 			OGLDEV_ERROR("Unimplemented OGLDEV to ATB key");
 	}

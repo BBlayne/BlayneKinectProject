@@ -832,7 +832,9 @@ void BlayneKinect::DrawJoints()
 		hr = m_bodyFrameReader->AcquireLatestFrame(&bodyFrame);
 		if (FAILED(hr))
 		{
-			printf("Oh no! Failed to get latest body frame!\n");
+			if (!isSilent)
+				printf("Oh no! Failed to get latest body frame!\n");
+
 			if (m_sensor)
 			{
 				BOOLEAN isSensorAvailable = false;

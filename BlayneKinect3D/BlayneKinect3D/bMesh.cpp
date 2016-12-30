@@ -85,6 +85,438 @@ void CopyGlMatToAiMat(const glm::mat4 from, aiMatrix4x4 &to) {
 	to[3][0] = from[0][3]; to[3][1] = from[1][3]; to[3][2] = from[2][3]; to[3][3] = from[3][3];
 }
 
+bool bMesh::CreatePrism(GLfloat pointA, GLfloat pointB, const std::string& Filename)
+{
+	// Release the previously loaded mesh (if it exists)
+	Clear();
+
+	// Create the VAO
+	glGenVertexArrays(1, &m_VAO);
+	glBindVertexArray(m_VAO);
+
+	// Create the buffers for the vertices attributes
+	glGenBuffers(ARRAY_SIZE_IN_ELEMENTS(m_Buffers), m_Buffers);
+
+	GLfloat g_vertex_buffer_data[] = {
+		-1.0f,pointA,-1.0f,
+		-1.0f,pointA, 1.0f,
+		-1.0f, pointB, 1.0f,
+		1.0f, pointB,-1.0f,
+		-1.0f,pointA,-1.0f,
+		-1.0f, pointB,-1.0f,
+		1.0f,pointA, 1.0f,
+		-1.0f,pointA,-1.0f,
+		1.0f,pointA,-1.0f,
+		1.0f, pointB,-1.0f,
+		1.0f,pointA,-1.0f,
+		-1.0f,pointA,-1.0f,
+		-1.0f,pointA,-1.0f,
+		-1.0f, pointB, 1.0f,
+		-1.0f, pointB,-1.0f,
+		1.0f,pointA, 1.0f,
+		-1.0f,pointA, 1.0f,
+		-1.0f,pointA,-1.0f,
+		-1.0f, pointB, 1.0f,
+		-1.0f,pointA, 1.0f,
+		1.0f,pointA, 1.0f,
+		1.0f, pointB, 1.0f,
+		1.0f,pointA,-1.0f,
+		1.0f, pointB,-1.0f,
+		1.0f,pointA,-1.0f,
+		1.0f, pointB, 1.0f,
+		1.0f,pointA, 1.0f,
+		1.0f, pointB, 1.0f,
+		1.0f, pointB,-1.0f,
+		-1.0f, pointB,-1.0f,
+		1.0f, pointB, 1.0f,
+		-1.0f, pointB,-1.0f,
+		-1.0f, pointB, 1.0f,
+		1.0f, pointB, 1.0f,
+		-1.0f, pointB, 1.0f,
+		1.0f,pointA, 1.0f
+	};
+
+	// One color for each vertex. They were generated randomly.
+	static const GLfloat g_color_buffer_data[] = {
+		0.583f,  0.771f,  0.014f,
+		0.609f,  0.115f,  0.436f,
+		0.327f,  0.483f,  0.844f,
+		0.822f,  0.569f,  0.201f,
+		0.435f,  0.602f,  0.223f,
+		0.310f,  0.747f,  0.185f,
+		0.597f,  0.770f,  0.761f,
+		0.559f,  0.436f,  0.730f,
+		0.359f,  0.583f,  0.152f,
+		0.483f,  0.596f,  0.789f,
+		0.559f,  0.861f,  0.639f,
+		0.195f,  0.548f,  0.859f,
+		0.014f,  0.184f,  0.576f,
+		0.771f,  0.328f,  0.970f,
+		0.406f,  0.615f,  0.116f,
+		0.676f,  0.977f,  0.133f,
+		0.971f,  0.572f,  0.833f,
+		0.140f,  0.616f,  0.489f,
+		0.997f,  0.513f,  0.064f,
+		0.945f,  0.719f,  0.592f,
+		0.543f,  0.021f,  0.978f,
+		0.279f,  0.317f,  0.505f,
+		0.167f,  0.620f,  0.077f,
+		0.347f,  0.857f,  0.137f,
+		0.055f,  0.953f,  0.042f,
+		0.714f,  0.505f,  0.345f,
+		0.783f,  0.290f,  0.734f,
+		0.722f,  0.645f,  0.174f,
+		0.302f,  0.455f,  0.848f,
+		0.225f,  0.587f,  0.040f,
+		0.517f,  0.713f,  0.338f,
+		0.053f,  0.959f,  0.120f,
+		0.393f,  0.621f,  0.362f,
+		0.673f,  0.211f,  0.457f,
+		0.820f,  0.883f,  0.371f,
+		0.982f,  0.099f,  0.879f
+	};
+
+	static const GLfloat g_normal_buffer_data[] = {
+		-1.000000,0.000000,
+		0.000000,-1.000000,
+		0.000000,0.000000,
+		-1.000000,0.000000,
+		0.000000,-1.000000,
+		0.000000,0.000000,
+		0.000000,1.000000,
+		0.000000,0.000000,
+		1.000000,0.000000,
+		0.000000,1.000000,
+		0.000000,0.000000,
+		1.000000,0.000000,
+		0.999998,0.000210,
+		-0.002219,0.999998,
+		0.000210,-0.002219,
+		0.999998,0.000210,
+		-0.002219,0.999998,
+		0.000210,-0.002219,
+		0.009158,-0.999916,
+		0.009158,0.009158,
+		-0.999916,0.009158,
+		0.009158,-0.999916,
+		0.009158,0.009158,
+		-0.999916,0.009158,
+		0.000000,0.000000,
+		-1.000000,0.000000,
+		0.000000,-1.000000,
+		0.000000,0.000000,
+		-1.000000,0.000000,
+		0.000000,-1.000000,
+		-0.002844,0.000270,
+		0.999996,-0.002844,
+		0.000270,0.999996,
+		-0.002844,0.000270,
+		0.999996,-0.002844,
+		0.000270,0.999996
+	};
+
+	// Two UV coordinatesfor each vertex. They were created withe Blender.
+	static const GLfloat g_uv_buffer_data[] = {
+		/*
+		0.7500, 0.9999, // 1
+		0.5000, 0.7500, // 2
+		0.7500, 0.7500, // 3
+		0.5000, 0.9999, // 4
+		0.2500, 0.7500, // 5
+		0.2500, 0.9999, // 6
+		0.0001, 0.7500, // 7
+		0.2500, 0.2500, // 8
+		0.5000, 0.5000, // 9
+		0.2500, 0.5000, // 10
+		0.5000, 0.0001, // 11
+		0.2500, 0.0001, // 12
+		0.0001, 0.9999, // 13
+		0.5000, 0.2500, // 14
+		*/
+		// 1
+		0.7500, 0.9999, // 
+		0.5000, 0.7500, // 
+		0.7500, 0.7500, // 
+						// 2
+						0.5000, 0.9999, // very top
+						0.2500, 0.7500,
+						0.5000, 0.7500, // 
+										// 3
+										0.2500, 0.9999, // 6
+										0.0001, 0.7500, // 7
+										0.2500, 0.7500, // 5
+														// 4
+														0.2500, 0.2500, // 8
+														0.5000, 0.5000, // 9
+														0.2500, 0.5000, // 10
+																		// 5
+																		0.2500, 0.7500, // 5
+																		0.5000, 0.5000, // 9
+																		0.5000, 0.7500, // 2
+																						// 6
+																						0.5000, 0.0001, // 11
+																						0.2500, 0.2500, // 8
+																						0.2500, 0.0001, // 12
+																										// 7
+																										0.7500, 0.9999, // 1
+																										0.5000, 0.9999, // 4
+																										0.5000, 0.7500, // 2
+																														// 8
+																														0.5000, 0.9999, // 4
+																														0.2500, 0.9999, // 6
+																														0.2500, 0.7500, // 5
+																																		// 9
+																																		0.2500, 0.9999, // 6
+																																		0.0001, 0.9999, // 13
+																																		0.0001, 0.7500, // 7
+																																						// 10
+																																						0.2500, 0.2500, // 8
+																																						0.5000, 0.2500, // 14
+																																						0.5000, 0.5000, // 9
+																																										// 11
+																																										0.2500, 0.7500, // 5
+																																										0.2500, 0.5000, // 10
+																																										0.5000, 0.5000, // 9
+																																														// 12
+																																														0.5000, 0.0001, // 11
+																																														0.5000, 0.2500, // 14
+																																														0.2500, 0.2500 // 8
+	};
+
+
+	std::vector<GLfloat> vertices(g_vertex_buffer_data,
+		g_vertex_buffer_data + sizeof(g_vertex_buffer_data) / sizeof(*g_vertex_buffer_data));
+	std::vector<GLfloat> colours(g_color_buffer_data,
+		g_color_buffer_data + sizeof(g_color_buffer_data) / sizeof(*g_color_buffer_data));
+	std::vector<GLfloat> normal_points(g_normal_buffer_data,
+		g_normal_buffer_data + sizeof(g_normal_buffer_data) / sizeof(*g_normal_buffer_data));
+
+	std::vector<GLfloat> uv_points(g_uv_buffer_data,
+		g_uv_buffer_data + sizeof(g_uv_buffer_data) / sizeof(*g_uv_buffer_data));
+
+
+	std::vector<glm::vec3> Positions;
+	for (int i = 0; i < vertices.size(); i += 3)
+	{
+		glm::vec3 _pos(vertices[i], vertices[i + 1], vertices[i + 2]);
+		Positions.push_back(_pos);
+	}
+
+	std::vector<glm::vec2> TexCoords;
+	for (int i = 0; i < uv_points.size(); i += 2)
+	{
+		glm::vec2 _uv(uv_points[i], uv_points[i + 1]);
+		TexCoords.push_back(_uv);
+	}
+
+	std::vector<glm::vec3> Normals;
+	for (int i = 0; i < normal_points.size(); i += 3)
+	{
+		glm::vec3 _pos(normal_points[i], normal_points[i + 1], normal_points[i + 2]);
+		Normals.push_back(_pos);
+	}
+
+	std::vector<glm::uint> Indices;
+	MeshEntry entry;
+	m_Entries.push_back(entry);
+	Texture* tex = new Texture(GL_TEXTURE_2D, std::string("CubeUVs - Copy.png").c_str());
+	m_Textures.push_back(tex);
+
+	if (!m_Textures[0]->Load()) {
+		printf("Error loading texture '%s'\n", std::string("CubeUVs - Copy.png").c_str());
+		delete m_Textures[0];
+		m_Textures[0] = NULL;
+		return false;
+	}
+	else {
+		printf("%d - loaded texture '%s'\n", 0, std::string("CubeUVs - Copy.png").c_str());
+	}
+
+	// Populate the index buffer
+	std::vector<glm::vec3> indexed_vertices;
+	std::vector<glm::vec2> indexed_uvs;
+	std::vector<glm::vec3> indexed_normals;
+	indexVBO(Positions, TexCoords, Normals, Indices, indexed_vertices, indexed_uvs,
+		indexed_normals);
+
+	//printf("NumFaces %d, numVerts %d, numNormals %d, numIndices %d \n", Positions.size() / 3,
+	//	Positions.size(), Normals.size(), Indices.size());
+
+	glm::uint NumVertices = 0;
+	glm::uint NumIndices = 0;
+	m_Entries[0].MaterialIndex = 0;
+	m_Entries[0].NumIndices = Indices.size();
+	m_Entries[0].BaseVertex = NumVertices;
+	m_Entries[0].BaseIndex = NumIndices;
+	NumVertices += Positions.size();
+	NumIndices += Indices.size();
+
+	// Generate and populate the buffers with vertex attributes and the indices
+	glBindBuffer(GL_ARRAY_BUFFER, m_Buffers[POS_VB]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(Positions[0]) * Positions.size(), &Positions[0], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(POSITION_LOCATION);
+	glVertexAttribPointer(POSITION_LOCATION, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, m_Buffers[TEXCOORD_VB]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(TexCoords[0]) * TexCoords.size(), &TexCoords[0], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(TEX_COORD_LOCATION);
+	glVertexAttribPointer(TEX_COORD_LOCATION, 2, GL_FLOAT, GL_FALSE, 0, 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, m_Buffers[NORMAL_VB]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(Normals[0]) * Normals.size(), &Normals[0], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(NORMAL_LOCATION);
+	glVertexAttribPointer(NORMAL_LOCATION, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_Buffers[INDEX_BUFFER]);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Indices[0]) * Indices.size(), &Indices[0], GL_STATIC_DRAW);
+
+	// Make sure the VAO is not changed from the outside
+	glBindVertexArray(0);
+
+	// Create a Scene if one does not exist.
+	if (m_pScene == NULL)
+	{
+		m_pScene = new aiScene();
+		m_pScene->mAnimations = new aiAnimation*[0];
+		m_pScene->mNumAnimations = 1;
+		m_pScene->mNumMeshes = 1;
+		m_pScene->mNumLights = 0;
+
+		aiMesh* m_MeshForMScene = new aiMesh();
+		m_MeshForMScene->mName = "Bone";
+		m_MeshForMScene->mNumFaces = Indices.size() / 3;
+		//m_MeshForMScene->mNumBones = 0;
+		int numNormals = Normals.size();
+		m_MeshForMScene->mNumVertices = Positions.size();
+
+		m_MeshForMScene->mNormals =
+			new aiVector3D[numNormals];
+
+		for (int i = 0; i < numNormals; i++)
+		{
+			m_MeshForMScene->mNormals[i] =
+				aiVector3D(Normals[i].x,
+					Normals[i].y,
+					Normals[i].z);
+		}
+
+		m_MeshForMScene->mVertices =
+			new aiVector3D[m_MeshForMScene->mNumVertices];
+
+		for (int i = 0; i < m_MeshForMScene->mNumVertices; i++)
+		{
+			m_MeshForMScene->mVertices[i] =
+				aiVector3D(Positions[i].x,
+					Positions[i].y,
+					Positions[i].z);
+		}
+
+		int mUVSize = TexCoords.size();
+		m_MeshForMScene->mTextureCoords[0] = new aiVector3D[mUVSize];
+		for (int i = 0; i < mUVSize; i++)
+		{
+			m_MeshForMScene->mTextureCoords[0][i] =
+				aiVector3D(TexCoords[i].x,
+					TexCoords[i].y,
+					0);
+		}
+		m_MeshForMScene->mNumUVComponents[0] = mUVSize;
+
+		m_pScene->mNumMaterials = 0;
+		m_pScene->mNumTextures = 0;
+
+
+		aiNode* m_Node = new aiNode();
+		m_Node->mName = "rootBone";
+		m_Node->mNumMeshes = 1;
+		m_Node->mParent = NULL;
+		m_Node->mNumChildren = 0;
+		m_Node->mChildren = NULL;
+		m_Node->mMeshes = new unsigned int[1];
+		m_Node->mMeshes[0] = 0;
+		glm::mat4 LocalNodeTransform = glm::mat4(1.0);
+		glm::mat4 scaleMatrix = glm::scale(glm::vec3(1, 1, 1));
+		glm::mat4 RotMat = glm::toMat4(glm::quat());
+		glm::mat4 TransMat = glm::translate(glm::vec3(0, 0, 0));
+
+		LocalNodeTransform =
+			TransMat * RotMat * scaleMatrix;
+
+		CopyGlMatToAiMat(LocalNodeTransform, m_Node->mTransformation);
+		m_pScene->mRootNode = m_Node;
+
+		aiBone* m_Bone = new aiBone();
+		m_Bone->mName = "rootBone";
+		m_Bone->mNumWeights = Positions.size();
+		m_Bone->mWeights = new aiVertexWeight[m_Bone->mNumWeights];
+		for (int i = 0; i < m_Bone->mNumWeights; i++)
+		{
+			aiVertexWeight m_weight;
+			m_weight.mVertexId = i;
+			m_weight.mWeight = 1;
+			m_Bone->mWeights[i] = m_weight;
+		}
+
+		CopyGlMatToAiMat(glm::inverse(LocalNodeTransform), m_Bone->mOffsetMatrix);
+
+		m_MeshForMScene->mBones = new aiBone*[1];
+		m_MeshForMScene->mBones[0] = m_Bone;
+
+		m_pScene->mMeshes = new aiMesh*[1];
+		m_pScene->mMeshes[0] = m_MeshForMScene;
+
+		//m_pScene->mAnimations
+		aiAnimation* m_Animation = new aiAnimation();
+		m_Animation->mName = "DefaultCube";
+		m_Animation->mNumChannels = 1;
+		m_Animation->mTicksPerSecond = 24;
+		m_Animation->mDuration = 30;
+
+		aiNodeAnim* m_nodeAnim = new aiNodeAnim();
+		m_nodeAnim->mNodeName = "rootBone";
+		m_nodeAnim->mNumPositionKeys = 1;
+		m_nodeAnim->mNumRotationKeys = 1;
+		m_nodeAnim->mNumScalingKeys = 1;
+		aiVectorKey m_PosKey;
+		m_PosKey.mTime = 0;
+		m_PosKey.mValue = aiVector3D(0, 0, 0);
+		m_nodeAnim->mPositionKeys = new aiVectorKey[1];
+		m_nodeAnim->mPositionKeys[0] = m_PosKey;
+
+		aiVectorKey m_ScalKey;
+		m_ScalKey.mTime = 0;
+		m_ScalKey.mValue = aiVector3D(1, 1, 1);
+		m_nodeAnim->mScalingKeys = new aiVectorKey[1];
+		m_nodeAnim->mScalingKeys[0] = m_ScalKey;
+
+		aiQuatKey m_RotKey;
+		m_RotKey.mTime = 0;
+		glm::quat tempRot = glm::quat();
+
+		m_RotKey.mValue = aiQuaternion(tempRot.w,
+			tempRot.x,
+			tempRot.y,
+			tempRot.z);
+		m_nodeAnim->mRotationKeys = new aiQuatKey[1];
+		m_nodeAnim->mRotationKeys[0] = m_RotKey;
+
+		m_Animation->mChannels = new aiNodeAnim*[1];
+		m_Animation->mChannels[0] = m_nodeAnim;
+
+		m_pScene->mAnimations[0] = m_Animation;
+		m_NumBones = 0;
+		unsigned int BoneIndex = m_NumBones;
+		m_NumBones++;
+		BoneInfo bi;
+		m_BoneInfo.push_back(bi);
+		std::string m(m_nodeAnim->mNodeName.data);
+		m_BoneMapping[m] = BoneIndex;
+		m_GlobalInverseTransform = glm::inverse(LocalNodeTransform);
+	}
+
+	return GLCheckError();
+}
+
 bool bMesh::CreatePrism(GLfloat length, const std::string& Filename)
 {
 	// Release the previously loaded mesh (if it exists)
@@ -1322,6 +1754,44 @@ const aiNodeAnim* bMesh::FindNodeAnim(const aiAnimation* pAnimation, const std::
 	return NULL;
 }
 
+glm::vec3 bMesh::FindNodePosition(const std::string NodeName)
+{
+
+	glm::mat4 myMatrix = glm::mat4(1.0);
+	FindNode(NodeName, this->m_pScene->mRootNode, glm::mat4(1.0), myMatrix);
+
+	glm::vec3 myPos;
+	myPos.x = myMatrix[3][0];
+	myPos.y = myMatrix[3][1];
+	myPos.z = myMatrix[3][2];
+
+	return myPos;
+}
+
+void bMesh::FindNode(const std::string BoneToFind, const aiNode* pNode, const glm::mat4& ParentTransform,
+	glm::mat4& matrixToReturn)
+{
+	std::string NodeName(pNode->mName.data);
+	glm::mat4 NodeTransformation = glm::mat4();
+	CopyaiMat(&pNode->mTransformation, NodeTransformation);
+	const glm::mat4 _nodeTransform = NodeTransformation;
+
+
+	if (BoneToFind.compare(NodeName) == 0)
+	{
+		const glm::mat4 mat = ParentTransform * _nodeTransform;
+		matrixToReturn = mat;
+	}
+	else
+	{
+		for (glm::uint i = 0; i < pNode->mNumChildren; i++) {
+			FindNode(BoneToFind, pNode->mChildren[i], ParentTransform * _nodeTransform, matrixToReturn);
+		}
+	}
+}
+
+
+
 glm::vec3 bMesh::FindBonePosition(const std::string NodeName)
 {
 	
@@ -1375,6 +1845,97 @@ glm::vec3 FindMidPoint(glm::vec3 ptA, glm::vec3 ptB)
 
 	mid = glm::vec3(mid.x, mid.y, mid.z);
 	return mid;
+}
+
+// create Skeleton recursively
+void bMesh::createSkeletonRecursively()
+{
+	std::printf("Creating Recursive Skeleton through nodes \n");
+	m_BasicMeshSkeleton.clear();
+
+	ReadNodeTreeToCreateBoneMesh(this->m_pScene->mRootNode);
+
+	std::printf("Skeleton Bone Count: %d \n", m_BasicMeshSkeleton.size());
+}
+
+void bMesh::ReadNodeTreeToCreateBoneMesh(const aiNode* pNode)
+{
+	std::string nodeName(pNode->mName.data);
+	printf("Parent Node was: %s \n", nodeName);
+
+	if (pNode->mNumChildren > 0)
+	{
+		printf("%s's children(%d) are: \n", nodeName, pNode->mNumChildren);
+		for (int i = 0; i < pNode->mNumChildren; i++)
+		{
+			std::string childNodeName(pNode->mChildren[i]->mName.data);
+			printf(" |----->%s \n", childNodeName);
+			// Head Position
+			glm::vec3 head = FindNodePosition(nodeName);
+			// Tail Position
+			glm::vec3 tail = FindNodePosition(childNodeName);
+			float length = glm::distance(tail, head);
+			printf("Distance from %s to %s is %.3f, from: \n", nodeName, childNodeName, length);
+			PrintVector3(head);
+			printf("to: \n");
+			PrintVector3(tail);
+			// recursively check each child
+			if (nodeName.compare("Armature") == 0 || nodeName.compare("RootNode") == 0
+				|| nodeName.compare("Base") == 0 || nodeName.compare("cheb.000") == 0)
+			{
+				// Continue
+				ReadNodeTreeToCreateBoneMesh(pNode->mChildren[i]);
+			}
+			else
+			{
+				// Create mesh
+				// Continue
+				ReadNodeTreeToCreateBoneMesh(pNode->mChildren[i]);
+				float scaleFactor = 1;
+				Orientation boneOrientation;
+				//boneOrientation.m_translation = FindMidPoint(head, tail);
+				boneOrientation.m_translation = head;
+				glm::mat4 mMatrix = glm::mat4(1.0);
+				FindNode(nodeName, this->m_pScene->mRootNode, glm::mat4(1.0), mMatrix);
+				mMatrix = mMatrix * m_GlobalInverseTransform;
+				glm::vec3 scale = glm::vec3(1.0);
+				glm::quat rot;
+				glm::vec3 trans;
+				glm::vec4 per;
+				glm::decompose(mMatrix, scale, rot, trans, trans, per);
+				rot = glm::conjugate(rot);
+
+				boneOrientation.m_rotation.x = glm::degrees(glm::eulerAngles(rot)).x;
+				boneOrientation.m_rotation.y = glm::degrees(glm::eulerAngles(rot)).y;
+				boneOrientation.m_rotation.z = glm::degrees(glm::eulerAngles(rot)).z;
+				boneOrientation.m_scale = glm::vec3(1, 1, 1);
+				BasicMesh* skeletonBone = new BasicMesh();
+				if (!skeletonBone->CreatePrism((GLfloat)0, (GLfloat)length, "StandardCube.fbx"))
+				{
+					printf("Error Creating prism. \n");
+					return;
+				}
+
+				skeletonBone->GetOrientation().m_scale = glm::vec3(0.0625f, 1, 0.0625f);
+				//skeletonBone->GetOrientation().m_scale = glm::vec3(1, 1, 1);
+				skeletonBone->GetOrientation().m_translation = boneOrientation.m_translation;
+				skeletonBone->GetOrientation().m_rotation = boneOrientation.m_rotation;
+
+				Orientation& tempOrient = skeletonBone->GetOrientation();
+				boneOrientation.m_scale = glm::vec3(tempOrient.m_scale.x, (tempOrient.m_scale.y * scaleFactor), tempOrient.m_scale.z);
+				tempOrient = boneOrientation;
+
+				skeletonBone->ObjName = childNodeName;
+				m_BasicMeshSkeleton.push_back(skeletonBone);
+			}
+			
+		}
+	}
+	else
+	{
+		printf("%s has no children. \n", nodeName);
+		// Create here?
+	}
 }
 
 //createSkeleton
@@ -1598,12 +2159,6 @@ void bMesh::rotateBoneAtFrame(std::string boneName, glm::vec3 oldPos, glm::vec3 
 	_node->mRotationKeys[frame].mValue = aiQuaternion(_rotation.w, _rotation.x, _rotation.y, _rotation.z);
 }
 
-void bMesh::FindBoneAtFrame(const std::string BoneToFind, const aiNode* pNode, const glm::mat4& ParentTransform,
-	glm::mat4& matrixToReturn, aiScene* _scene, int frame)
-{
-
-}
-
 void bMesh::rotateBone(std::string boneName, glm::vec3 oldPos, glm::vec3 newPos)
 {
 	//glm::mat4 NodeTransformation = glm::mat4(1.0);
@@ -1653,7 +2208,7 @@ void bMesh::rotateBone(std::string boneName, glm::vec3 oldPos, glm::vec3 newPos)
 }
 
 // Find the closest bone to the given point.
-std::string bMesh::FindClosestBone(const aiMesh* pMesh, glm::vec3 _pos)
+std::string bMesh::FindClosestBone(glm::vec3 _pos)
 {
 
 	glm::vec3 pos;
@@ -1661,22 +2216,31 @@ std::string bMesh::FindClosestBone(const aiMesh* pMesh, glm::vec3 _pos)
 	std::string closestBone;
 	glm::vec3 shortestPos;
 	//printf("Clicked: %.3f, %.3f, %.3f \n", _pos.x, _pos.y, _pos.z);
-	for (glm::uint i = 0; i < pMesh->mNumBones; i++) {
+	for (glm::uint i = 0; i < this->m_pScene->mMeshes[0]->mNumBones; i++) {
 		glm::uint BoneIndex = 0;
-		std::string BoneName(pMesh->mBones[i]->mName.data);
-		int numChildren = this->getScene()->mRootNode->FindNode(BoneName.c_str())->mNumChildren;
-		if (BoneName.compare("Root") == 0 || BoneName.compare("Armature") == 0 || numChildren == 0)
+		std::string BoneName(this->m_pScene->mMeshes[0]->mBones[i]->mName.data);
+		if (m_BoneMapping.find(BoneName) == m_BoneMapping.end())
 		{
 			continue;
 		}
+
+		//int numChildren = this->m_pScene->mRootNode->FindNode(BoneName.c_str())->mNumChildren;
+		//if (BoneName.compare("Root") == 0 || BoneName.compare("Armature") == 0 || numChildren == 0)
+		//{
+		//	continue;
+		//}
 		
+		// fast, quick and dirty way of ascertaining the closest bone to the point
+		// of our mouse click.
 		glm::vec3 head = FindBonePosition(BoneName);
 		std::string TailBoneName(this->getScene()->mRootNode->FindNode(BoneName.c_str())->mChildren[0]->mName.data);
 		glm::vec3 tail = FindBonePosition(TailBoneName);
-		pos = FindMidPoint(head, tail);
+		//pos = FindMidPoint(head, tail);
+		pos = head;
+		// Ideally we'd check maybe the head and tail positions too?
 		float new_possibly_shortest_dist = getDistanceToBone(_pos, pos);		
-		//printf("Possibly Shortest Dist (%s): %.3f at (%.3f, %.3f, %.3f) \n", BoneName, new_possibly_shortest_dist, 
-		//	pos.x, pos.y, pos.z);
+		printf("Possibly Shortest Dist (%s): %.3f at (%.3f, %.3f, %.3f) \n", BoneName, new_possibly_shortest_dist, 
+			pos.x, pos.y, pos.z);
 		if (shortestDistance > new_possibly_shortest_dist)
 		{
 			shortestDistance = new_possibly_shortest_dist;
@@ -1684,7 +2248,7 @@ std::string bMesh::FindClosestBone(const aiMesh* pMesh, glm::vec3 _pos)
 			shortestPos = pos;
 		}
 
-		//printf("Current Shortest is (%s) at %.3f \n", closestBone, shortestDistance);
+		printf("Current Shortest is (%s) at %.3f \n", closestBone, shortestDistance);
 	}
 
 	//printf("Closest bone is %s located at %.3f, %.3f, %.3f:  \n", closestBone, 

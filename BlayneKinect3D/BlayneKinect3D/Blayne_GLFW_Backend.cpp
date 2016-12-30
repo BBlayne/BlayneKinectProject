@@ -21,6 +21,21 @@ static bool sWithDepth = false;
 static bool sWithStencil = false;
 static GLFWwindow* s_pWindow = NULL;
 
+static BLAYNE_MODIFIER GLFWModToBlayneModifier(Blayne_Types::uint32 BlayneMod)
+{
+	switch (BlayneMod)
+	{
+	case GLFW_MOD_SHIFT:
+		return BLAYNE_MOD_SHIFT;
+	case GLFW_MOD_CONTROL:
+		return BLAYNE_MOD_CTRL;
+	case GLFW_MOD_ALT:
+		return BLAYNE_MOD_ALT;
+	default:
+		return BLAYNE_MOD_NONE;
+	}
+}
+
 static BLAYNE_KEY GLFWKeyToBLAYNEKey(Blayne_Types::uint32 Key)
 {
 	if (Key >= GLFW_KEY_SPACE && Key <= GLFW_KEY_RIGHT_BRACKET) {
@@ -80,6 +95,12 @@ static BLAYNE_KEY GLFWKeyToBLAYNEKey(Blayne_Types::uint32 Key)
 		return BLAYNE_KEY_F11;
 	case GLFW_KEY_F12:
 		return BLAYNE_KEY_F12;
+	case GLFW_KEY_LEFT_ALT:
+		return BLAYNE_KEY_LEFT_ALT;
+	case GLFW_KEY_LEFT_SHIFT:
+		return BLAYNE_KEY_LSHIFT;
+	case GLFW_KEY_LEFT_CONTROL:
+		return BLAYNE_KEY_LEFT_CTRL;
 	default:
 		OGLDEV_ERROR("Unimplemented OGLDEV key");
 	}
@@ -106,6 +127,7 @@ static BLAYNE_MOUSE GLFWMouseToBlayneMouse(Blayne_Types::uint32 Button)
 static void KeyCallback(GLFWwindow* pWindow, int key, int scancode, int action, int mods)
 {
 	BLAYNE_KEY BlayneKey = GLFWKeyToBLAYNEKey(key);
+	BLAYNE_MODIFIER BlayneMod = GLFWModToBlayneModifier(mods);
 	BLAYNE_KEY_STATE BlayneKeyState = (action == GLFW_PRESS) ? BLAYNE_KEY_STATE_PRESS : BLAYNE_KEY_STATE_RELEASE;
 	s_pCallbacks->KeyboardCB(BlayneKey, BlayneKeyState);
 }
@@ -209,12 +231,16 @@ void GLFWBackendRun(IBlayneCallbacks* pCallbacks)
 	}
 
 	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
-	//glFrontFace(GL_CCW);
-	//glCullFace(GL_BACK);
-	//glEnable(GL_CULL_FACE);
+	glFrontFace(GL_CCW);
+	glCullFace(GL_BACK);
+	glEnable(GL_CULL_FACE);
 
 	if (sWithDepth) {
 		glEnable(GL_DEPTH_TEST);
+	}
+	else
+	{
+		glDepthFunc(GL_NEVER);
 	}
 
 	s_pCallbacks = pCallbacks;

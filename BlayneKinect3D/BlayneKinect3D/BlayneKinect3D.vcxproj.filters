@@ -78,6 +78,9 @@
     <ClCompile Include="KinectTextureTechnique.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="PickingTechnique.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Blayne_Utilities.h">
@@ -164,6 +167,9 @@
     <ClInclude Include="KinectTextureTechnique.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="PickingTechnique.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Shaders\basic_lighting.fs">
@@ -185,6 +191,12 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="Shaders\BasicTexture.fragmentshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\Picking.fragmentshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\Picking.vertexshader">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

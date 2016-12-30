@@ -101,7 +101,7 @@ void BasicMesh::Clear()
 	}
 }
 
-bool BasicMesh::CreatePrism(GLfloat length, const std::string& Filename)
+bool BasicMesh::CreatePrism(GLfloat pointA, GLfloat pointB, const std::string& Filename)
 {
 	// Release the previously loaded mesh (if it exists)
 	Clear();
@@ -125,54 +125,42 @@ bool BasicMesh::CreatePrism(GLfloat length, const std::string& Filename)
 	*/
 
 	GLfloat g_vertex_buffer_data[] = {
-		// 1
-		-1.000000, length, 1.000000,    // 2
-		-1.000000, -length, -1.000000, // 3
-		-1.000000, -length, 1.000000,    // 1
-		// 2
-		-1.000000, length, -1.000000,	// 4
-		1.000000, -length, -1.000000, // 7
-		-1.000000, -length, -1.000000, // 3
-		// 3
-		1.000000, length, -1.000000,	// 8
-		1.000000, -length, 1.000000,	// 5
-		1.000000, -length, -1.000000, // 7
-		// 4
-		1.000000, length, 1.000000,	// 6
-		-1.000000, -length, 1.000000,    // 1
-		1.000000, -length, 1.000000,	// 5
-		// 5
-		1.000000, -length, -1.000000, // 7
-		-1.000000, -length, 1.000000,    // 1
-		-1.000000, -length, -1.000000, // 3
-		// 6
-		-1.000000, length, -1.000000,	// 4
-		1.000000, length, 1.000000,	// 6
-		1.000000, length, -1.000000,	// 8
-		// 7
-		-1.000000, length, 1.000000,    // 2
-		-1.000000, length, -1.000000,	// 4
-		-1.000000, -length, -1.000000, // 3
-		// 8
-		-1.000000, length, -1.000000,	// 4
-		1.000000, length, -1.000000,	// 8
-		1.000000, -length, -1.000000, // 7
-		// 9
-		1.000000, length, -1.000000,	// 8
-		1.000000, length, 1.000000,	// 6
-		1.000000, -length, 1.000000,	// 5
-		// 10
-		1.000000, length, 1.000000,	// 6
-		-1.000000, length, 1.000000,    // 2
-		-1.000000, -length, 1.000000,    // 1
-		// 11
-		1.000000, -length, -1.000000, // 7
-		1.000000, -length, 1.000000,	// 5
-		-1.000000, -length, 1.000000,    // 1
-		// 12
-		-1.000000, length, -1.000000,	// 4
-		-1.000000, length, 1.000000,    // 2
-		1.000000, length, 1.000000	// 6
+		-1.0f,pointA,-1.0f,
+		-1.0f,pointA, 1.0f,
+		-1.0f, pointB, 1.0f,
+		1.0f, pointB,-1.0f,
+		-1.0f,pointA,-1.0f,
+		-1.0f, pointB,-1.0f,
+		1.0f,pointA, 1.0f,
+		-1.0f,pointA,-1.0f,
+		1.0f,pointA,-1.0f,
+		1.0f, pointB,-1.0f,
+		1.0f,pointA,-1.0f,
+		-1.0f,pointA,-1.0f,
+		-1.0f,pointA,-1.0f,
+		-1.0f, pointB, 1.0f,
+		-1.0f, pointB,-1.0f,
+		1.0f,pointA, 1.0f,
+		-1.0f,pointA, 1.0f,
+		-1.0f,pointA,-1.0f,
+		-1.0f, pointB, 1.0f,
+		-1.0f,pointA, 1.0f,
+		1.0f,pointA, 1.0f,
+		1.0f, pointB, 1.0f,
+		1.0f,pointA,-1.0f,
+		1.0f, pointB,-1.0f,
+		1.0f,pointA,-1.0f,
+		1.0f, pointB, 1.0f,
+		1.0f,pointA, 1.0f,
+		1.0f, pointB, 1.0f,
+		1.0f, pointB,-1.0f,
+		-1.0f, pointB,-1.0f,
+		1.0f, pointB, 1.0f,
+		-1.0f, pointB,-1.0f,
+		-1.0f, pointB, 1.0f,
+		1.0f, pointB, 1.0f,
+		-1.0f, pointB, 1.0f,
+		1.0f,pointA, 1.0f
 	};
 
 	// One color for each vertex. They were generated randomly.
@@ -274,6 +262,273 @@ bool BasicMesh::CreatePrism(GLfloat length, const std::string& Filename)
 		0.5000, 1 - 0.0001, // 11
 		0.5000, 1 - 0.2500, // 14
 		0.2500, 1 - 0.2500  // 8
+	};
+
+	std::vector<GLfloat> vertices(g_vertex_buffer_data,
+		g_vertex_buffer_data + sizeof(g_vertex_buffer_data) / sizeof(*g_vertex_buffer_data));
+	std::vector<GLfloat> colours(g_color_buffer_data,
+		g_color_buffer_data + sizeof(g_color_buffer_data) / sizeof(*g_color_buffer_data));
+	std::vector<GLfloat> normal_points(g_normal_buffer_data,
+		g_normal_buffer_data + sizeof(g_normal_buffer_data) / sizeof(*g_normal_buffer_data));
+
+	std::vector<GLfloat> uv_points(g_uv_buffer_data,
+		g_uv_buffer_data + sizeof(g_uv_buffer_data) / sizeof(*g_uv_buffer_data));
+
+
+	std::vector<glm::vec3> Positions;
+	for (int i = 0; i < vertices.size(); i += 3)
+	{
+		glm::vec3 _pos(vertices[i], vertices[i + 1], vertices[i + 2]);
+		Positions.push_back(_pos);
+	}
+
+	std::vector<glm::vec2> TexCoords;
+	for (int i = 0; i < uv_points.size(); i += 2)
+	{
+		glm::vec2 _uv(uv_points[i], uv_points[i + 1]);
+		TexCoords.push_back(_uv);
+	}
+
+	std::vector<glm::vec3> Normals;
+	for (int i = 0; i < normal_points.size(); i += 3)
+	{
+		glm::vec3 _pos(normal_points[i], normal_points[i + 1], normal_points[i + 2]);
+		Normals.push_back(_pos);
+	}
+
+	std::vector<glm::uint> Indices;
+	BasicMeshEntry entry;
+	m_Entries.push_back(entry);
+	Texture* tex = new Texture(GL_TEXTURE_2D, std::string("CubeUVs - Copy.png").c_str());
+	m_Textures.push_back(tex);
+
+	if (!m_Textures[0]->Load()) {
+		printf("Error loading texture '%s'\n", std::string("CubeUVs - Copy.png").c_str());
+		delete m_Textures[0];
+		m_Textures[0] = NULL;
+		return false;
+	}
+	else {
+		printf("%d - loaded texture '%s'\n", 0, std::string("CubeUVs - Copy.png").c_str());
+	}
+
+	// Populate the index buffer
+	std::vector<glm::vec3> indexed_vertices;
+	std::vector<glm::vec2> indexed_uvs;
+	std::vector<glm::vec3> indexed_normals;
+	indexVBO(Positions, TexCoords, Normals, Indices, indexed_vertices, indexed_uvs,
+		indexed_normals);
+
+	printf("NumFaces %d, numVerts %d, numNormals %d, numIndices %d \n", Positions.size() / 3,
+		Positions.size(), Normals.size(), Indices.size());
+
+	glm::uint NumVertices = 0;
+	glm::uint NumIndices = 0;
+	m_Entries[0].MaterialIndex = 0;
+	m_Entries[0].NumIndices = Indices.size();
+	m_Entries[0].BaseVertex = NumVertices;
+	m_Entries[0].BaseIndex = NumIndices;
+	NumVertices += Positions.size();
+	NumIndices += Indices.size();
+
+	// Generate and populate the buffers with vertex attributes and the indices
+	glBindBuffer(GL_ARRAY_BUFFER, m_Buffers[POS_VB]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(Positions[0]) * Positions.size(), &Positions[0], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(POSITION_LOCATION);
+	glVertexAttribPointer(POSITION_LOCATION, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, m_Buffers[TEXCOORD_VB]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(TexCoords[0]) * TexCoords.size(), &TexCoords[0], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(TEX_COORD_LOCATION);
+	glVertexAttribPointer(TEX_COORD_LOCATION, 2, GL_FLOAT, GL_FALSE, 0, 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, m_Buffers[NORMAL_VB]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(Normals[0]) * Normals.size(), &Normals[0], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(NORMAL_LOCATION);
+	glVertexAttribPointer(NORMAL_LOCATION, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_Buffers[INDEX_BUFFER]);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Indices[0]) * Indices.size(), &Indices[0], GL_STATIC_DRAW);
+
+	// Make sure the VAO is not changed from the outside
+	glBindVertexArray(0);
+
+
+	return GLCheckError();
+}
+bool BasicMesh::CreatePrism(GLfloat length, const std::string& Filename)
+{
+	// Release the previously loaded mesh (if it exists)
+	Clear();
+
+	// Create the VAO
+	glGenVertexArrays(1, &m_VAO);
+	glBindVertexArray(m_VAO);
+
+	// Create the buffers for the vertices attributes
+	glGenBuffers(ARRAY_SIZE_IN_ELEMENTS(m_Buffers), m_Buffers);
+
+	/*
+	-1.000000, -length, 1.000000,    // 1
+	-1.000000, length, 1.000000,    // 2
+	-1.000000, -length, -1.000000, // 3
+	-1.000000, length, -1.000000,	// 4
+	1.000000, -length, 1.000000,	// 5
+	1.000000, length, 1.000000,	// 6
+	1.000000, -length, -1.000000, // 7
+	1.000000, length, -1.000000,	// 8
+	*/
+
+	GLfloat g_vertex_buffer_data[] = {
+		// 1
+		-1.000000, length, 1.000000,    // 2
+		-1.000000, -length, -1.000000, // 3
+		-1.000000, -length, 1.000000,    // 1
+										 // 2
+										 -1.000000, length, -1.000000,	// 4
+										 1.000000, -length, -1.000000, // 7
+										 -1.000000, -length, -1.000000, // 3
+																		// 3
+																		1.000000, length, -1.000000,	// 8
+																		1.000000, -length, 1.000000,	// 5
+																		1.000000, -length, -1.000000, // 7
+																									  // 4
+																									  1.000000, length, 1.000000,	// 6
+																									  -1.000000, -length, 1.000000,    // 1
+																									  1.000000, -length, 1.000000,	// 5
+																																	// 5
+																																	1.000000, -length, -1.000000, // 7
+																																	-1.000000, -length, 1.000000,    // 1
+																																	-1.000000, -length, -1.000000, // 3
+																																								   // 6
+																																								   -1.000000, length, -1.000000,	// 4
+																																								   1.000000, length, 1.000000,	// 6
+																																								   1.000000, length, -1.000000,	// 8
+																																																// 7
+																																																-1.000000, length, 1.000000,    // 2
+																																																-1.000000, length, -1.000000,	// 4
+																																																-1.000000, -length, -1.000000, // 3
+																																																							   // 8
+																																																							   -1.000000, length, -1.000000,	// 4
+																																																							   1.000000, length, -1.000000,	// 8
+																																																							   1.000000, -length, -1.000000, // 7
+																																																															 // 9
+																																																															 1.000000, length, -1.000000,	// 8
+																																																															 1.000000, length, 1.000000,	// 6
+																																																															 1.000000, -length, 1.000000,	// 5
+																																																																							// 10
+																																																																							1.000000, length, 1.000000,	// 6
+																																																																							-1.000000, length, 1.000000,    // 2
+																																																																							-1.000000, -length, 1.000000,    // 1
+																																																																															 // 11
+																																																																															 1.000000, -length, -1.000000, // 7
+																																																																															 1.000000, -length, 1.000000,	// 5
+																																																																															 -1.000000, -length, 1.000000,    // 1
+																																																																																							  // 12
+																																																																																							  -1.000000, length, -1.000000,	// 4
+																																																																																							  -1.000000, length, 1.000000,    // 2
+																																																																																							  1.000000, length, 1.000000	// 6
+	};
+
+	// One color for each vertex. They were generated randomly.
+	static const GLfloat g_color_buffer_data[] = {
+		0.583f,  0.771f,  0.014f,
+		0.609f,  0.115f,  0.436f,
+		0.327f,  0.483f,  0.844f,
+		0.822f,  0.569f,  0.201f,
+		0.435f,  0.602f,  0.223f,
+		0.310f,  0.747f,  0.185f,
+		0.597f,  0.770f,  0.761f,
+		0.559f,  0.436f,  0.730f,
+		0.359f,  0.583f,  0.152f,
+		0.483f,  0.596f,  0.789f,
+		0.559f,  0.861f,  0.639f,
+		0.195f,  0.548f,  0.859f,
+		0.014f,  0.184f,  0.576f,
+		0.771f,  0.328f,  0.970f,
+		0.406f,  0.615f,  0.116f,
+		0.676f,  0.977f,  0.133f,
+		0.971f,  0.572f,  0.833f,
+		0.140f,  0.616f,  0.489f,
+		0.997f,  0.513f,  0.064f,
+		0.945f,  0.719f,  0.592f,
+		0.543f,  0.021f,  0.978f,
+		0.279f,  0.317f,  0.505f,
+		0.167f,  0.620f,  0.077f,
+		0.347f,  0.857f,  0.137f,
+		0.055f,  0.953f,  0.042f,
+		0.714f,  0.505f,  0.345f,
+		0.783f,  0.290f,  0.734f,
+		0.722f,  0.645f,  0.174f,
+		0.302f,  0.455f,  0.848f,
+		0.225f,  0.587f,  0.040f,
+		0.517f,  0.713f,  0.338f,
+		0.053f,  0.959f,  0.120f,
+		0.393f,  0.621f,  0.362f,
+		0.673f,  0.211f,  0.457f,
+		0.820f,  0.883f,  0.371f,
+		0.982f,  0.099f,  0.879f
+	};
+
+	static const GLfloat g_normal_buffer_data[] = {
+		-1.000000,0.000000,0.000000,-1.000000,0.000000,0.000000,-1.000000,0.000000,0.000000,-1.000000,0.000000,0.000000,
+		0.000000,1.000000,0.000000,0.000000,1.000000,0.000000,0.000000,1.000000,0.000000,0.000000,1.000000,0.000000,
+		0.999998,0.000210,-0.002219,0.999998,0.000210,-0.002219,0.999998,0.000210,-0.002219,0.999998,0.000210,-0.002219,
+		0.009158,-0.999916,0.009158,0.009158,-0.999916,0.009158,0.009158,-0.999916,0.009158,0.009158,-0.999916,0.009158,
+		0.000000,0.000000,-1.000000,0.000000,0.000000,-1.000000,0.000000,0.000000,-1.000000,0.000000,0.000000,-1.000000,
+		-0.002844,0.000270,0.999996,-0.002844,0.000270,0.999996,-0.002844,0.000270,0.999996,-0.002844,0.000270,0.999996
+	};
+
+	// Two UV coordinatesfor each vertex. They were created withe Blender.
+	static const GLfloat g_uv_buffer_data[] = {
+		// 1
+		0.7500, 1 - 0.9999, // 1
+		0.5000, 1 - 0.7500, // 2
+		0.7500, 1 - 0.7500, // 3
+							// 2
+							0.5000, 1 - 0.9999, // 4
+							0.2500, 1 - 0.7500, // 5
+							0.5000, 1 - 0.7500, // 
+												// 3
+												0.2500, 1 - 0.9999, // 6
+												0.0001, 1 - 0.7500, // 7
+												0.2500, 1 - 0.7500, // 5
+																	// 4
+																	0.2500, 1 - 0.2500, // 8
+																	0.5000, 1 - 0.5000, // 9
+																	0.2500, 1 - 0.5000, // 10
+																						// 5
+																						0.2500, 1 - 0.7500, // 5
+																						0.5000, 1 - 0.5000, // 9
+																						0.5000, 1 - 0.7500, // 2
+																											// 6
+																											0.5000, 1 - 0.0001, // 11
+																											0.2500, 1 - 0.2500, // 8
+																											0.2500, 1 - 0.0001, // 12
+																																// 7
+																																0.7500, 1 - 0.9999, // 1
+																																0.5000, 1 - 0.9999, // 4
+																																0.5000, 1 - 0.7500, // 2
+																																					// 8
+																																					0.5000, 1 - 0.9999, // 4
+																																					0.2500, 1 - 0.9999, // 6
+																																					0.2500, 1 - 0.7500, // 5
+																																										// 9
+																																										0.2500, 1 - 0.9999, // 6
+																																										0.0001, 1 - 0.9999, // 13
+																																										0.0001, 1 - 0.7500, // 7
+																																															// 10
+																																															0.2500, 1 - 0.2500, // 8
+																																															0.5000, 1 - 0.2500, // 14
+																																															0.5000, 1 - 0.5000, // 9
+																																																				// 11
+																																																				0.2500, 1 - 0.7500, // 5
+																																																				0.2500, 1 - 0.5000, // 10
+																																																				0.5000, 1 - 0.5000, // 9
+																																																									// 12
+																																																									0.5000, 1 - 0.0001, // 11
+																																																									0.5000, 1 - 0.2500, // 14
+																																																									0.2500, 1 - 0.2500  // 8
 	};
 
 	std::vector<GLfloat> vertices(g_vertex_buffer_data,

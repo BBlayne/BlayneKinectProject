@@ -44,6 +44,7 @@ public:
 	~BasicMesh();
 
 	bool CreatePrism(GLfloat length, const std::string& Filename);
+	bool CreatePrism(GLfloat pointA, GLfloat pointB, const std::string& Filename);
 	bool LoadMesh(const std::string& Filename);
 
 	void Render();
