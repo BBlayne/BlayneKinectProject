@@ -32,11 +32,13 @@ public:
 	glm::mat4 armature;
 
 	bool LoadMesh(const std::string& Filename);
+	bool ReloadMesh(const std::string& Filename);
 	void Render();
 	// recursively update the skeleton from manual animation
 	//void TransformBone(const aiNode* pNode, const glm::mat4& ParentTransform);
 	// calculate angle of rotation and then update tree
 	void rotateBone(std::string boneName, glm::vec3 oldVec, glm::vec3 newVec);
+	void rotateBone(std::string boneName, glm::vec3 old_mPos, glm::vec3 new_mPos, int width, int height, glm::vec3 c_Pos);
 	void rotateBoneAtFrame(std::string boneName, glm::vec3 oldPos, glm::vec3 newPos, int frame, aiScene* _scene);
 	void rotateBoneAtFrame(std::string boneName, glm::quat _newRot, int frame, aiScene* _scene);
 	const aiScene* getScene() { return this->m_pScene; };
@@ -69,9 +71,11 @@ public:
 
 	void BoneTransform(float TimeInSeconds, std::vector<glm::mat4>& Transforms);
 	void BoneTransform(float TimeInSeconds, std::vector<glm::mat4>& Transforms, int selectedAnim);
+	void BoneTransform(float TimeInSeconds, std::vector<glm::mat4>& Transforms, int selectedAnim, int InterpolationMode);
 	void BoneTransformAtFrame(float frame, std::vector<glm::mat4>& Transforms, aiScene* _scene, int _anim);
 	void KinectBoneTransformAtFrame(int frame, std::vector<glm::mat4>& Transforms, aiScene* _scene, int _animationToInsertInto);
 	void KinectBoneTransform(std::vector<glm::mat4>& Transforms, aiScene* _scene);
+	void InsertKeyframeAtFrame(float frame, std::vector<glm::mat4>& Transforms, aiScene* _scene, int _anim);
 	void PrintMatrix(glm::mat4 matrix);
 	void PrintAiMatrix(aiMatrix4x4 matrix);
 	void PrintVector4(glm::vec4 _vector);
@@ -136,8 +140,10 @@ private:
 		
 	};	
 
+	void TraverseNodeHeirarchyForOriginalTransforms(aiNode* _Parent, const aiNode* _OtherParent);
 	void CalcInterpolatedScaling(aiVector3D& Out, float AnimationTime, const aiNodeAnim* pNodeAnim);
 	void CalcInterpolatedRotation(aiQuaternion& Out, float AnimationTime, const aiNodeAnim* pNodeAnim);
+	void CalcInterpolatedRotation(aiQuaternion& Out, float AnimationTime, const aiNodeAnim* pNodeAnim, int InterpolationMode);
 	void CalcInterpolatedPosition(aiVector3D& Out, float AnimationTime, const aiNodeAnim* pNodeAnim);
 	glm::uint FindScaling(float AnimationTime, const aiNodeAnim* pNodeAnim);
 	glm::uint FindRotation(float AnimationTime, const aiNodeAnim* pNodeAnim);
@@ -148,6 +154,7 @@ private:
 	const aiNodeAnim* FindNodeAnim(const aiAnimation* pAnimation, const std::string NodeName);
 	void ReadNodeHeirarchy(float AnimationTime, const aiNode* pNode, const glm::mat4& ParentTransform);
 	void ReadNodeHeirarchy(float AnimationTime, const aiNode* pNode, const glm::mat4& ParentTransform, int _anim);
+	void ReadNodeHeirarchy(float AnimationTime, const aiNode* pNode, const glm::mat4& ParentTransform, int _anim, int InterpolationMode);
 	void ReadNodeHeirarchySimplified(const aiNode* pNode, const glm::mat4& ParentTransform);
 	void ReadNodeHeirarchyAtFrame(float frame, const aiNode* pNode, const glm::mat4& ParentTransform, 
 								  aiScene* _scene, int _anim);
@@ -155,6 +162,8 @@ private:
 		aiScene* _scene, int _animationToInsertInto);
 	void KinectReadNodeHeirarchy(const aiNode* pNode, const glm::mat4& ParentTransform,
 		aiScene* _scene);
+	void ReadNodeHeirarchyToInsertAtFrame(int frame, const aiNode* pNode,
+		const glm::mat4& ParentTransform, aiScene* _scene, int _animationToInsertInto);
 	bool InitFromScene(const aiScene* pScene, const std::string& Filename);
 	//bool InitFromScene(const aiScene* pScene, const std::string& Filename);
 	void InitMesh(unsigned int MeshIndex,
@@ -167,8 +176,15 @@ private:
 	void LoadBones(glm::uint MeshIndex, const aiMesh* paiMesh, std::vector<VertexBoneData>& Bones);
 	bool InitMaterials(const aiScene* pScene, const std::string& Filename);
 	void ReadNodeTreeToCreateBoneMesh(const aiNode* pNode);
+	void ReadNodeTreeToUpdateSkeleton(const aiNode* pNode);
 	void FindNode(const std::string NodeToFind, const aiNode* pNode, const glm::mat4& ParentTransform,
 		glm::mat4& matrixToReturn);
+	void FindLocalTransform(const std::string NodeToFind, const aiNode* pNode,
+		glm::mat4& TransformMatrixToReturn);
+	void FindGlobalTransform(const std::string NodeToFind, 
+		const aiNode* pNode,
+		glm::mat4 ParentTransform,
+		glm::mat4& TransformMatrixToReturn);
 	glm::vec3 FindNodePosition(const std::string NodeName);
 	aiMatrix4x4 fromMatrix3x3(const aiMatrix3x3& AssimpMatrix);
 	void Clear();
@@ -214,7 +230,7 @@ private:
 	glm::vec3 FindBonePosition(const std::string NodeName);
 	void FindBone(const std::string BoneToFind, const aiNode* pNode, const glm::mat4& ParentTransform,
 		glm::mat4& matrixToReturn);
-	void UpdateSkeleton(const aiMesh* pMesh);
+	void UpdateSkeleton();
 	void FindLocalPosition(const std::string BoneToFind, const aiNode* pNode, const glm::mat4& ParentTransform, glm::vec3& _pos);
 	void FindLocalRotation(const std::string BoneToFind, const aiNode* pNode, const glm::mat4& ParentTransform, glm::quat& _rot);
 	void FindLocalScale(const std::string BoneToFind, const aiNode* pNode, const glm::mat4& ParentTransform, glm::vec3& _scale);

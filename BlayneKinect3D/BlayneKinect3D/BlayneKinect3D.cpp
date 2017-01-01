@@ -61,12 +61,14 @@ int gGLMajorVersion = 0;
 *	Globals for the Main program and App.
 */
 // Default Window Size 
-#define WINDOW_WIDTH 1024	
-#define WINDOW_HEIGHT 768
+#define WINDOW_WIDTH 800	
+#define WINDOW_HEIGHT 600
 
 typedef enum { GEORGE, DAVE, CHEB, BONE } MESH_TYPE;
 
 typedef enum { TPOSE, FREE, VIEW, INSERT_KINECT, INSERT_POSE, PLAYER, KINECT_COL } ANIMATION_MODE;
+
+typedef enum { LINEAR, SLERP, EULER, MATRIX } INTER_TYPE;
 
 #define imageWidth 1024
 #define imageHeight 1024
@@ -85,12 +87,15 @@ int minDuration = 0;
 int minFrames = 0;
 int maxFrames = 1;
 int frameVal = 0;
+int previousFrame = 0;
 int animDuration = 0;
 int currentSkinnedMesh = 2;
 int previousSkinnedMesh = 0;
 int basicMeshOffset = 0;
 int basicMeshPipelineIndex = 0;
 bool isMouseDown = false;
+bool wasClicked = false;
+int currentInterpolationIndex = 0;
 glm::vec3 lastPosClicked;
 
 // Function called to copy the content of a std::string (souceString) handled 
@@ -136,12 +141,16 @@ void TW_CALL InsertKeyFrameButton(void *clientData)
 	ANIMATION_MODE _mode = *(ANIMATION_MODE*)clientData;
 	if (_mode == ANIMATION_MODE::INSERT_KINECT)
 		isInsertingKeyFrame = true;
+	else if (_mode == ANIMATION_MODE::INSERT_POSE)
+		isInsertingKeyFrame = true;
 }
 
 void TW_CALL SetDurationFrameButton(void *clientData)
 {
 	ANIMATION_MODE _mode = *(ANIMATION_MODE*)clientData;
 	if (_mode == ANIMATION_MODE::INSERT_KINECT)
+		isSettingDuration = true;
+	else if (_mode == ANIMATION_MODE::INSERT_POSE)
 		isSettingDuration = true;
 }
 
@@ -237,7 +246,12 @@ private:
 	TwType animationsType;
 	std::string m_selectedBone = "";
 	double last_mx = 0, last_my = 0;
+	glm::vec3 clickedPos = glm::vec3();
+	glm::vec3 lastClickedPos = glm::vec3();
 	glm::mat3 arcBallRotation;
+	int m_mX = WINDOW_WIDTH / 2;
+	int m_mY = WINDOW_HEIGHT / 2;
+	std::vector<glm::vec3> rgbs;
 public:
 	BlayneKinect3D() { 
 		m_pGameCamera = NULL;
@@ -405,7 +419,7 @@ public:
 			return false;
 		}
 
-		//m_SkinnedMeshes[0]->createSkeleton(m_BasicMeshes[1]);
+		m_SkinnedMeshes[0]->createSkeletonRecursively();
 		Blayne_Pipeline skeletonPipeline;
 		skeletonPipeline = m_pipeline;
 		
@@ -421,7 +435,7 @@ public:
 			return false;
 		}
 
-		//m_SkinnedMeshes[1]->createSkeleton(m_BasicMeshes[1]);
+		m_SkinnedMeshes[1]->createSkeletonRecursively();
 
 		if (!this->InitSkinnedMesh("RiggedChebTPose.fbx",
 			glm::vec3(0.0f, 0.0f, 0.0f),
@@ -457,9 +471,20 @@ public:
 		}
 
 		//m_SkinnedMeshes[3]->createSkeleton(m_BasicMeshes[1]);
-
+		//INTER_TYPE
 		// TwBar stuff.
 		bar = TwNewBar("Blaynes Kinect v2.0 3D App.");
+		TwEnumVal InterpolationModes[] = {
+			{ LINEAR, "Lerp" },
+			{ SLERP, "Slerp" },
+			{ EULER, "Euler" },
+			{ MATRIX, "Matrix" }
+		};
+		TwType InterpolationTwType = TwDefineEnum("Interpolation", InterpolationModes, 4);
+		// Link it to the tweak bar
+		TwAddVarRW(bar, "Interpolation", InterpolationTwType, &currentInterpolationIndex, NULL);
+		// The second parameter is an optional name
+		TwAddSeparator(bar, "", NULL);
 		TwEnumVal SkinnedMeshes[] = {
 			{ GEORGE, "George" },
 			{ DAVE, "Dave" },
@@ -569,7 +594,7 @@ public:
 		// Message added to the help bar.
 		TwDefine(" GLOBAL help='This example shows how to integrate AntTweakBar with OGLDEV.' "); 
 		TwAddVarRO(bar, "GL Major Version", TW_TYPE_INT32, &gGLMajorVersion, " label='Major version of GL' ");
-		TwDefine(" 'Blaynes Kinect v2.0 3D App.' label='Control Menu' size='250 400' valueswidth=120 ");
+		TwDefine(" 'Blaynes Kinect v2.0 3D App.' label='Control Menu' size='250 500' valueswidth=120 ");
 		/*
 		if (!m_RenderToTexturer.InitFrameBuffer(WINDOW_WIDTH, WINDOW_HEIGHT, texName))
 		{
@@ -611,7 +636,7 @@ public:
 	}
 
 	virtual void RenderSceneCB()
-	{
+	{		
 		// Kinect
 		m_KinectObj->TickForJointsInfo(deltaTime);
 			//m_RenderToTexturer.RenderToFrameBuffer();
@@ -619,70 +644,76 @@ public:
 		// the mouse along the edge of the screen.
 		//m_pGameCamera->OnRender();      
 		glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-		//glClearDepth(1.0f);
-		//glDepthFunc(GL_LESS);
-		//glEnable(GL_DEPTH_TEST);
-		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		//glClearDepth(0.5f);
 
-		// Use our shader
-		m_LightingTech.Enable();
-
-		// Set the camera position for the lighting, and pass our directional light
-		// to our lighting system.
-		m_LightingTech.SetEyeWorldPos(m_pGameCamera->GetCameraPosition());
-		m_LightingTech.SetDirectionalLight(m_directionalLight);
-
-		// Pass our camera object to our pipeline object.
-		for (int i = 0; i < m_pipelines.size(); i++)
+		if (RenderSkeletonForPicking(m_currentPipeline, currentSkinnedMesh))
 		{
-			m_pipelines[i].SetCamera(*m_pGameCamera);
-			glm::vec3 newCamPos = m_pGameCamera->GetCameraPosition();
-			//glm::quat OldCamRot = glm::dot()
-			glm::quat newCamRot = glm::quat(glm::vec3(glm::radians(m_camRotationEuler.x),
-				glm::radians(m_camRotationEuler.y), glm::radians(m_camRotationEuler.z)));
-			newCamPos = glm::rotate(newCamRot, newCamPos);
-			m_pipelines[i].SetCamera(newCamPos,
-				m_pGameCamera->GetCameraLookDirection(),
-				m_pGameCamera->GetCameraUpDirection());			
-		}	
+			//glClearDepth(1.0f);
+			//glDepthFunc(GL_LESS);
+			//glEnable(GL_DEPTH_TEST);
+			glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			//glClearDepth(0.5f);
+			// Use our shader
+			m_LightingTech.Enable();
 
-		// Refresh orientations & call rendering
-		// Render our ground plane/cube
-		this->RenderBasicMesh(m_currentPipeline, 0);
-		this->RenderSkinnedMesh(m_currentPipeline, currentSkinnedMesh);
-		this->RenderSkeleton(m_currentPipeline, currentSkinnedMesh);
-	
-		//  RenderFPS();     
+			// Set the camera position for the lighting, and pass our directional light
+			// to our lighting system.
+			m_LightingTech.SetEyeWorldPos(m_pGameCamera->GetCameraPosition());
+			m_LightingTech.SetDirectionalLight(m_directionalLight);
 
-			//m_RenderToTexturer.RenderToScreen();
-			//m_RenderToTexturer.Render(texName);
-		
-		CalcFPS();
-		//calculate delta time
-		const auto now = Clock::now();
-		const auto duration = duration_cast<microseconds>(now - lastTime);
-		deltaTime = duration.count() / 1000000.0f;
+			// Pass our camera object to our pipeline object.
+			for (int i = 0; i < m_pipelines.size(); i++)
+			{
+				m_pipelines[i].SetCamera(*m_pGameCamera);
+				glm::vec3 newCamPos = m_pGameCamera->GetCameraPosition();
+				//glm::quat OldCamRot = glm::dot()
+				glm::quat newCamRot = glm::quat(glm::vec3(
+					glm::radians(m_camRotationEuler.x),
+					glm::radians(m_camRotationEuler.y), 
+					glm::radians(m_camRotationEuler.z)));
+				newCamPos = glm::rotate(newCamRot, newCamPos);
+				m_pipelines[i].SetCamera(newCamPos,
+					m_pGameCamera->GetCameraLookDirection(),
+					m_pGameCamera->GetCameraUpDirection());
+			}
 
-		lastTime = now;
+			// Refresh orientations & call rendering
+			// Render our ground plane/cube
+			this->RenderBasicMesh(m_currentPipeline, 0);
+			this->RenderSkinnedMesh(m_currentPipeline, currentSkinnedMesh);
+			this->RenderSkeleton(m_currentPipeline, currentSkinnedMesh);
 
-		if (m_currentMode == KINECT_COL)
-		{
-			m_KinectTextureTech.Enable();
-			m_KinectObj->Tick(deltaTime);
-			m_KinectObj->ConvertColourBufferToTexture();
-			m_KinectObj->DrawPixelBuffer();
-		}
-		
-		//printf("DT: %.3f \n", deltaTime);
-		//m_KinectObj->ConvertColourBufferToTexture();
-		//m_KinectObj->DrawPixelBuffer();
-		glm::vec3 newCamPos = glm::vec3(0, 0, 0);
-		//m_camRotationEuler
-		//newCamPos.x = glm::sin()
+			//  RenderFPS();     
 
-		BlayneBackendSwapBuffers();
+				//m_RenderToTexturer.RenderToScreen();
+				//m_RenderToTexturer.Render(texName);
+
+			CalcFPS();
+			//calculate delta time
+			const auto now = Clock::now();
+			const auto duration = duration_cast<microseconds>(now - lastTime);
+			deltaTime = duration.count() / 1000000.0f;
+
+			lastTime = now;
+
+			if (m_currentMode == KINECT_COL)
+			{
+				m_KinectTextureTech.Enable();
+				m_KinectObj->Tick(deltaTime);
+				m_KinectObj->ConvertColourBufferToTexture();
+				m_KinectObj->DrawPixelBuffer();
+			}
+
+			//printf("DT: %.3f \n", deltaTime);
+			//m_KinectObj->ConvertColourBufferToTexture();
+			//m_KinectObj->DrawPixelBuffer();
+			glm::vec3 newCamPos = glm::vec3(0, 0, 0);
+			//m_camRotationEuler
+			//newCamPos.x = glm::sin()
+			previousFrame = frameVal;
+
+			BlayneBackendSwapBuffers();
+		}		
 	}
 
 	virtual void KeyboardCB(BLAYNE_KEY BlayneKey, BLAYNE_KEY_STATE BlayneKeyState)
@@ -723,62 +754,18 @@ public:
 	{
 		if (State == BLAYNE_KEY_STATE::BLAYNE_KEY_STATE_PRESS)
 		{
-			printf("X: %d, Y: %d\n", x, y);
-			if (m_currentMode == ANIMATION_MODE::INSERT_POSE)
-			{
-				m_PickingTechnique.Enable();
-
-				for (int i = 0; i < m_SkinnedMeshes[currentSkinnedMesh]->m_BasicMeshSkeleton.size(); i++)
-				{
-					// Send our transformation to the currently bound shader, 
-					// in the "MVP" uniform
-					m_PickingTechnique.SetWVP(m_pipelines[m_currentPipeline].GetWVPTrans());
-					// Convert "i", the integer mesh ID, into an RGB color
-					int r = (i & 0x000000FF) >> 0;
-					int g = (i & 0x0000FF00) >> 8;
-					int b = (i & 0x00FF0000) >> 16;
-
-					m_PickingTechnique.SetPickingColour(glm::vec4(r / 255.0f, g / 255.0f, b / 255.0f, 1.0f));
-
-					Orientation tempOrient;
-					m_pipelines[basicMeshPipelineIndex].Orient(m_SkinnedMeshes[currentSkinnedMesh]->m_BasicMeshSkeleton[i]->GetOrientation());
-					glm::vec3 bonePos = m_objPosition + m_SkinnedMeshes[currentSkinnedMesh]->m_BasicMeshSkeleton[i]->GetOrientation().m_translation;
-					m_pipelines[basicMeshPipelineIndex].WorldPos(bonePos);
-					//m_pipelines[basicMeshPipelineIndex].Rotate(m_objRotationEuler);
-					m_LightingTech.SetWVP(m_pipelines[basicMeshPipelineIndex].GetWVPTrans());
-					if (m_SkinnedMeshes[currentSkinnedMesh]->m_BasicMeshSkeleton.size() > 0)
-						m_SkinnedMeshes[currentSkinnedMesh]->m_BasicMeshSkeleton[i]->Render();
-				}
-
-				// Wait until all the pending drawing commands are really done.
-				// Ultra-mega-over slow ! 
-				// There are usually a long time between glDrawElements() and
-				// all the fragments completely rasterized.
-				glFlush();
-				glFinish();
-
-				glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-				// Read the pixel at the center of the screen.
-				// You can also use glfwGetMousePos().
-				// Ultra-mega-over slow too, even for 1 pixel, 
-				// because the framebuffer is on the GPU.
-				unsigned char data[4];
-				glReadPixels(x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, data);
-
-				// Convert the color back to an integer ID
-				int pickedID =
-					data[0] +
-					data[1] * 256 +
-					data[2] * 256 * 256;
-
-				if (pickedID >= 0 && pickedID < m_SkinnedMeshes[currentSkinnedMesh]->m_BasicMeshSkeleton.size())
-					m_selectedBone = m_SkinnedMeshes[currentSkinnedMesh]->m_BasicMeshSkeleton[pickedID]->ObjName;
-				printf("Selected bone is %s\n", m_selectedBone);
-			}
 			isMouseDown = true;
+			wasClicked = true;
+			m_mX = x;
+			m_mY = y;
+			clickedPos = lastClickedPos = glm::vec3(m_mX, m_mY, 0);
 		}			
-		else
+
+		if (State == BLAYNE_KEY_STATE::BLAYNE_KEY_STATE_RELEASE)
+		{
 			isMouseDown = false;
+			wasClicked = false;
+		}
 
 		m_atb.MouseCB(Button, State, x, y);
 	}
@@ -790,32 +777,14 @@ public:
 			if (isMouseDown)
 			{
 				if (m_currentMode == ANIMATION_MODE::INSERT_POSE)
-				{
-					// Find Selected Bone
-					double dMouseX = x;
-					double dMouseY = y;
-					glm::vec3 clickedPos(dMouseX, dMouseY, 0);
-
+				{			
+					clickedPos = glm::vec3(x, y, 0);
 					if (clickedPos != lastPosClicked)
 					{
-						/*
-						glm::vec3 va = get_arcball_vector(last_mx, last_my, WINDOW_WIDTH, WINDOW_HEIGHT);
-						glm::vec3 vb = get_arcball_vector(x, y, WINDOW_WIDTH, WINDOW_HEIGHT);
-						float angle = glm::acos(glm::min(1.0f, glm::dot(va, vb)));
-						angle /= 10;
-						glm::vec3 axis_in_camera_coord = glm::cross(va, vb);
-						glm::mat3 camera2object = glm::inverse(m_pipelines[m_currentPipeline].GetViewTrans());
-						glm::vec3 axis_in_object_coord = camera2object * axis_in_camera_coord;
-						arcBallRotation = glm::rotate(glm::mat4(1.0), glm::degrees(angle), axis_in_object_coord);
-						*/
-						//_mesh->rotateBoneAtFrame(selectedBone, 
-						//lastPosClicked, 
-						//	clickedPos, 
-						//	frameVal, 
-						//	(aiScene*)_mesh->getScene());
-						//m_SkinnedMeshes[currentSkinnedMesh]->rotateBone(m_selectedBone, 
-						//	lastPosClicked,
-						//	clickedPos);
+						m_SkinnedMeshes[currentSkinnedMesh]->rotateBone(m_selectedBone, 
+							lastPosClicked,
+							clickedPos, WINDOW_WIDTH, WINDOW_HEIGHT,
+							m_pipelines[m_currentPipeline].GetCameraPos());
 					}
 					lastPosClicked = clickedPos;
 				}
@@ -889,6 +858,87 @@ public:
 		//m_LightingTech.SetWorldMatrix(m_pipelines[0].GetWorldTrans());
 		// Render Mesh
 		m_BasicMeshes[_whichMesh]->Render();
+	}
+
+	bool RenderSkeletonForPicking(int _whichPipe, int _whichMesh)
+	{
+		if (m_currentMode == ANIMATION_MODE::INSERT_POSE && wasClicked)
+		{
+			wasClicked = false;
+			rgbs.clear();
+			//isMouseDown = false;
+			// Clear the screen in white
+			glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			m_PickingTechnique.Enable();
+
+			for (int i = 0; 
+				//i < 1
+				i < m_SkinnedMeshes[currentSkinnedMesh]->m_BasicMeshSkeleton.size()
+				; i++)
+			{
+				// Convert "i", the integer mesh ID, into an RGB color
+				int r = (i & 0x000000FF) >> 0;
+				int g = (i & 0x0000FF00) >> 8;
+				int b = (i & 0x00FF0000) >> 16;
+				rgbs.push_back(glm::vec3(r, g, b));
+
+				m_PickingTechnique.SetPickingColour(glm::vec4(r / 255.0f, g / 255.0f, b / 255.0f, 1.0f));
+
+				Orientation tempOrient;
+				m_pipelines[_whichPipe].Orient(m_SkinnedMeshes[currentSkinnedMesh]->m_BasicMeshSkeleton[i]->GetOrientation());
+				glm::vec3 bonePos = m_objPosition + m_SkinnedMeshes[currentSkinnedMesh]->m_BasicMeshSkeleton[i]->GetOrientation().m_translation;
+				m_pipelines[_whichPipe].WorldPos(bonePos);
+				//m_pipelines[basicMeshPipelineIndex].Rotate(m_objRotationEuler);
+				// Send our transformation to the currently bound shader, 
+				// in the "MVP" uniform
+				m_PickingTechnique.SetWVP(m_pipelines[_whichPipe].GetWVPTrans());
+				if (m_SkinnedMeshes[currentSkinnedMesh]->m_BasicMeshSkeleton.size() > 0)
+					m_SkinnedMeshes[currentSkinnedMesh]->m_BasicMeshSkeleton[i]->Render();
+			}
+
+			// Wait until all the pending drawing commands are really done.
+			// Ultra-mega-over slow ! 
+			// There are usually a long time between glDrawElements() and
+			// all the fragments completely rasterized.
+			glFlush();
+			glFinish();
+
+			glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+			// Read the pixel at the center of the screen.
+			// You can also use glfwGetMousePos().
+			// Ultra-mega-over slow too, even for 1 pixel, 
+			// because the framebuffer is on the GPU.
+			unsigned char data[4];
+			glReadPixels(m_mX, glm::abs(m_mY - WINDOW_HEIGHT), 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, data);
+
+			// Convert the color back to an integer ID
+			int pickedID =
+				data[0] +
+				data[1] * 256 +
+				data[2] * 256 * 256;
+
+			//printf("Picked ID: %d \n", pickedID);
+			if (pickedID >= 0 && pickedID < m_SkinnedMeshes[currentSkinnedMesh]->m_BasicMeshSkeleton.size())
+			{
+				//printf("RGB: %d, %d, %d\n", (int)rgbs[pickedID].x, (int)rgbs[pickedID].y, (int)rgbs[pickedID].z);
+				//printf("Picked ID: %d, Bone maybe is: %s \n", pickedID, m_SkinnedMeshes[currentSkinnedMesh]->m_BasicMeshSkeleton[pickedID]->ObjName);
+				m_selectedBone = m_SkinnedMeshes[currentSkinnedMesh]->m_BasicMeshSkeleton[pickedID]->ObjName;
+			}
+			else if (pickedID == 0x00ffffff)
+			{
+				//printf("background. \n");
+			}
+
+			//BlayneBackendSwapBuffers();
+
+			return true;
+		}
+		else
+		{
+			return true;
+		}
+
 	}
 
 	void RenderSkeleton(int _whichPipe, int _whichMesh)
@@ -968,6 +1018,9 @@ public:
 				minDuration = 0;
 
 			TwSetParam(bar, "mDuration", "min", TW_PARAM_INT32, 1, &minDuration);
+			maxFrames = 0;
+			frameVal = 0;
+			TwSetParam(bar, "frame", "max", TW_PARAM_INT32, 1, &maxFrames);
 			TwRefreshBar(bar);
 		}
 		else
@@ -991,7 +1044,6 @@ public:
 				{
 					isSettingDuration = false;
 					m_SkinnedMeshes[_whichMesh]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration = animDuration;
-
 				}
 
 				if (m_SkinnedMeshes[_whichMesh]->getScene()->HasAnimations())
@@ -1046,11 +1098,45 @@ public:
 			}
 			else if (m_currentMode == ANIMATION_MODE::INSERT_POSE)
 			{
-				// Rotate Selected Bone in Mouse CB Function
-				// Viewing inserted frames
-				m_SkinnedMeshes[_whichMesh]->BoneTransform(frameVal, transforms, m_currentlySelectedAnimation);
-				// Enable shaders
-				m_SkinningTech.Enable();
+				if (isSettingDuration)
+				{
+					isSettingDuration = false;
+					m_SkinnedMeshes[_whichMesh]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration = animDuration;
+				}
+
+				if (m_SkinnedMeshes[_whichMesh]->getScene()->HasAnimations())
+					maxFrames = m_SkinnedMeshes[_whichMesh]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration - 1;
+				else
+					maxFrames = 0;
+
+				TwSetParam(bar, "frame", "max", TW_PARAM_INT32, 1, &maxFrames);
+				TwRefreshBar(bar);
+				if (isInsertingKeyFrame)
+				{
+					isInsertingKeyFrame = false;
+					// We pass the frame in which we wish to insert our new key frame animation
+					m_SkinnedMeshes[_whichMesh]->InsertKeyframeAtFrame(frameVal, transforms,
+						(aiScene*)m_SkinnedMeshes[_whichMesh]->getScene(), m_currentlySelectedAnimation);
+					ReloadSkinnedMesh(_whichMesh);
+				}
+				else
+				{
+					// Rotate Selected Bone in Mouse CB Function
+					// Viewing inserted frames
+					//m_SkinnedMeshes[_whichMesh]->BoneTransform(frameVal, transforms, m_currentlySelectedAnimation);
+					m_SkinnedMeshes[_whichMesh]->BoneTransformSimplifiedNoInterpolation(transforms);
+					// Enable shaders
+					m_SkinningTech.Enable();
+				}
+
+				if (m_SkinnedMeshes[_whichMesh]->getScene()->HasAnimations())
+					minDuration = m_SkinnedMeshes[_whichMesh]->getScene()->mAnimations[m_currentlySelectedAnimation]->mDuration;
+				else
+					minDuration = 0;
+
+				TwSetParam(bar, "mDuration", "min", TW_PARAM_INT32, 1, &minDuration);
+				TwRefreshBar(bar);
+
 			}
 			else if (m_currentMode == ANIMATION_MODE::VIEW)
 			{
@@ -1059,7 +1145,7 @@ public:
 			}
 			else if (m_currentMode == ANIMATION_MODE::PLAYER)
 			{
-				m_SkinnedMeshes[_whichMesh]->BoneTransform(runningTime, transforms, m_currentlySelectedAnimation);
+				m_SkinnedMeshes[_whichMesh]->BoneTransform(runningTime, transforms, m_currentlySelectedAnimation, currentInterpolationIndex);
 			}
 		}
 
@@ -1119,12 +1205,13 @@ public:
 		int i = 0;
 		for (; i < m_maxAnimation; i++)
 		{
-			defaultAnims.append(std::to_string(i) + " {").append(m_SkinnedMeshes[0]->getScene()->mAnimations[i]->mName.data).append("}, ");
+			defaultAnims.append(std::to_string(i) + " {").append(m_SkinnedMeshes[_whichMesh]->getScene()->mAnimations[i]->mName.data).append("}, ");
 		}
 
 		defaultAnims.append(std::to_string(i) + " { New Animation } ");
 
 		TwSetParam(bar, "Animations", "enum", TW_PARAM_CSTRING, 1, defaultAnims.c_str());
+
 		TwRefreshBar(bar);
 		
 	}
@@ -1149,10 +1236,12 @@ public:
 		}
 
 		// Should clear and reload the mesh
-		if (!m_SkinnedMeshes[whichMesh]->LoadMesh(path)) {
+		if (!m_SkinnedMeshes[whichMesh]->ReloadMesh(path)) {
 			printf("Something went wrong reloading the skinned mesh %s \n", path);
 			return false;
 		}
+
+		//m_SkinnedMeshes[whichMesh]->createSkeletonRecursively();
 
 		return true;
 	}

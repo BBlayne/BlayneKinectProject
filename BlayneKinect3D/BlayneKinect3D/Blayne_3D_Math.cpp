@@ -4,6 +4,20 @@
 #include<glm/common.hpp>
 #include <glm\gtc\type_ptr.hpp>
 
+glm::vec3 Blayne_3D_Math::get_arcball_vector(int x, int y, int WIDTH, int HEIGHT)
+{
+	glm::vec3 P = glm::vec3(1.0*x / WIDTH * 2 - 1.0,
+		1.0*y / HEIGHT * 2 - 1.0,
+		0);
+	P.y = -P.y;
+	float OP_squared = P.x * P.x + P.y * P.y;
+	if (OP_squared <= 1 * 1)
+		P.z = sqrt(1 * 1 - OP_squared);  // Pythagore
+	else
+		P = glm::normalize(P);  // nearest point
+	return P;
+}
+
 glm::mat4 Blayne_3D_Math::InitScaleTransform(float ScaleX, float ScaleY, float ScaleZ) {
 	return glm::scale(glm::vec3(ScaleX, ScaleY, ScaleZ));
 }

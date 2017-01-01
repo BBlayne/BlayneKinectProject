@@ -1,8 +1,11 @@
 #include "bMesh.h"
 #include "Blayne_3D_Math.h"
 
+#include <Windows.h>
 #include <algorithm>
 #include <exception>
+
+
 
 bMesh::bMesh() : ID(currID++)
 {
@@ -1162,6 +1165,34 @@ bool bMesh::CreatePrism(GLfloat length)
 	return GLCheckError();
 }
 
+bool bMesh::ReloadMesh(const std::string& Filename)
+{
+	Assimp::Importer _importer;
+
+	const aiScene* someSceneToReloadFrom = _importer.ReadFile(Filename.c_str(), aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs);
+	glm::mat4 temp;
+	if (someSceneToReloadFrom) {
+		//CopyaiMat(&_scene->mRootNode->mTransformation, temp);
+		m_GlobalInverseTransform = glm::inverse(temp);
+		
+		TraverseNodeHeirarchyForOriginalTransforms(m_pScene->mRootNode, someSceneToReloadFrom->mRootNode);
+	}
+	//else {
+	//	printf("Error parsing '%s': '%s'\n", Filename.c_str(), m_Importer.GetErrorString());
+	//}
+
+	this->UpdateSkeleton();
+	return true;
+}
+
+void bMesh::TraverseNodeHeirarchyForOriginalTransforms(aiNode* _Parent, const aiNode* _OtherParent)
+{
+	_Parent->mTransformation = _OtherParent->FindNode(_Parent->mName.C_Str())->mTransformation;
+	for (int i = 0; i < _Parent->mNumChildren; i++)
+	{
+		TraverseNodeHeirarchyForOriginalTransforms(_Parent->mChildren[i], _OtherParent);
+	}
+}
 
 bool bMesh::LoadMesh(const std::string& Filename)
 {
@@ -1535,6 +1566,36 @@ void bMesh::BoneTransform(float TimeInSeconds, std::vector<glm::mat4>& Transform
 	}
 }
 
+
+void bMesh::BoneTransform(float TimeInSeconds, std::vector<glm::mat4>& Transforms, int _animation, int InterpolationMode)
+{
+	glm::mat4 Identity = glm::mat4(1.0f);
+	if (this->m_pScene->HasAnimations())
+	{
+		float TicksPerSecond = m_pScene->mAnimations[_animation]->mTicksPerSecond != 0 ?
+			m_pScene->mAnimations[_animation]->mTicksPerSecond : 25.0f;
+		float TimeInTicks = TimeInSeconds * TicksPerSecond;
+		float AnimationTime = fmod(TimeInTicks, m_pScene->mAnimations[_animation]->mDuration);
+		//printf("BoneTransform: AnimTime. %f \n", AnimationTime);
+		//printf("TimeSeconds: %f: AnimationTime: %f: TicksPS: %f: TinTicks: %f, mDur: %f \n",
+		//	TimeInSeconds,
+		//	AnimationTime, TicksPerSecond, TimeInTicks,
+		//	m_pScene->mAnimations[_animation]->mDuration);
+		ReadNodeHeirarchy(AnimationTime, m_pScene->mRootNode, Identity, _animation, InterpolationMode);
+		Transforms.clear();
+		Transforms.resize(m_NumBones);
+		//printf("BoneTransform, numBones: %d \n", m_NumBones);
+
+		for (glm::uint i = 0; i < m_NumBones; i++) {
+			Transforms[i] = m_BoneInfo[i].FinalTransformation;
+		}
+	}
+	else
+	{
+		printf("Error, no animations present.");
+	}
+}
+
 void bMesh::ReadNodeHeirarchy(float AnimationTime, const aiNode* pNode, const glm::mat4& ParentTransform)
 {
 	std::string NodeName(pNode->mName.data);
@@ -1631,6 +1692,59 @@ void bMesh::ReadNodeHeirarchy(float AnimationTime, const aiNode* pNode, const gl
 	}
 }
 
+void bMesh::ReadNodeHeirarchy(float AnimationTime, const aiNode* pNode, const glm::mat4& ParentTransform, int _anim, int InterpolationMode)
+{
+	std::string NodeName(pNode->mName.data);
+	const aiAnimation* pAnimation = m_pScene->mAnimations[_anim];
+	glm::mat4 NodeTransformation = glm::mat4();
+	CopyaiMat(&pNode->mTransformation, NodeTransformation);
+	const aiNodeAnim* pNodeAnim = FindNodeAnim(pAnimation, NodeName);
+
+	if (pNodeAnim) {
+		// Interpolate scaling and generate scaling transformation matrix
+		aiVector3D Scaling;
+		CalcInterpolatedScaling(Scaling, AnimationTime, pNodeAnim);
+		glm::mat4 ScalingM;
+		glm::vec3 mScalingVector(Scaling.x, Scaling.y, Scaling.z);
+		ScalingM = glm::scale(mScalingVector);
+
+		// Interpolate rotation and generate rotation transformation matrix
+		aiQuaternion RotationQ;
+		//CalcInterpolatedRotation(RotationQ, AnimationTime, pNodeAnim);
+		//aiQuaternion RotationQ2;
+		CalcInterpolatedRotation(RotationQ, AnimationTime, pNodeAnim, InterpolationMode);
+		glm::mat4 RotationM;
+		//glm::mat4 RotationM2;
+		CopyaiMat(&fromMatrix3x3(RotationQ.GetMatrix()), RotationM);
+		//CopyaiMat(&fromMatrix3x3(RotationQ2.GetMatrix()), RotationM2);
+		//glm::quat myQuat = glm::quat(RotationQ.w, RotationQ.x, RotationQ.y, RotationQ.z);
+		//RotationM = glm::toMat4(myQuat);
+
+		// Interpolate translation and generate translation transformation matrix
+		aiVector3D Translation;
+		CalcInterpolatedPosition(Translation, AnimationTime, pNodeAnim);
+		glm::mat4 TranslationM;
+		TranslationM = glm::translate(glm::vec3(Translation.x, Translation.y, Translation.z));
+		std::string BoneName(pNode->mName.data);
+
+		// Combine the above transformations
+		NodeTransformation = TranslationM * RotationM * ScalingM;
+	}
+
+	glm::mat4 GlobalTransformation;
+
+	GlobalTransformation = ParentTransform * NodeTransformation;
+
+	if (m_BoneMapping.find(NodeName) != m_BoneMapping.end()) {
+		glm::uint BoneIndex = m_BoneMapping[NodeName];
+		m_BoneInfo[BoneIndex].FinalTransformation = m_GlobalInverseTransform * GlobalTransformation * m_BoneInfo[BoneIndex].BoneOffset;
+	}
+
+	for (glm::uint i = 0; i < pNode->mNumChildren; i++) {
+		ReadNodeHeirarchy(AnimationTime, pNode->mChildren[i], GlobalTransformation, _anim, InterpolationMode);
+	}
+}
+
 aiMatrix4x4 bMesh::fromMatrix3x3(const aiMatrix3x3& AssimpMatrix)
 {
 	aiMatrix4x4 m(AssimpMatrix);
@@ -1655,6 +1769,161 @@ void bMesh::CalcInterpolatedRotation(aiQuaternion& Out, float AnimationTime, con
 	const aiQuaternion& StartRotationQ = pNodeAnim->mRotationKeys[RotationIndex].mValue;
 	const aiQuaternion& EndRotationQ = pNodeAnim->mRotationKeys[NextRotationIndex].mValue;
 	aiQuaternion::Interpolate(Out, StartRotationQ, EndRotationQ, Factor);
+	Out = Out.Normalize();
+}
+
+static glm::quat LinearLerp(glm::quat start, glm::quat end, float Factor)
+{
+	// Formula for Linear Interpolation
+	// GLM"s implementation formula (very straight forward(
+	// return x * (T(1) - a) + (y * a);
+	
+	return glm::lerp<float>(start, end, Factor);
+}
+
+static glm::vec3 LinearLerp(glm::vec3 start, glm::vec3 end, float Factor)
+{
+	// Formula for Linear Interpolation
+	// GLM"s implementation formula (very straight forward(
+	// return x * (T(1) - a) + (y * a);
+	glm::vec3 interpolatedVec3 = start * (float(1) - Factor) + (end * Factor);
+
+	return interpolatedVec3;
+}
+
+static glm::quat SphericalLerp(glm::quat start, glm::quat end, float Factor)
+{
+	// GLM's implementation below
+	/*
+	tquat<T, P> z = y;
+
+	T cosTheta = dot(x, y);
+
+	// If cosTheta < 0, the interpolation will take the long way around the sphere.
+	// To fix this, one quat must be negated.
+	if (cosTheta < T(0))
+	{
+	z        = -y;
+	cosTheta = -cosTheta;
+	}
+
+	// Perform a linear interpolation when cosTheta is close to 1 to avoid side effect of sin(angle) becoming a zero denominator
+	if(cosTheta > T(1) - epsilon<T>())
+	{
+	// Linear interpolation
+	return tquat<T, P>(
+	mix(x.w, z.w, a),
+	mix(x.x, z.x, a),
+	mix(x.y, z.y, a),
+	mix(x.z, z.z, a));
+	}
+	else
+	{
+	// Essential Mathematics, page 467
+	T angle = acos(cosTheta);
+	return (sin((T(1) - a) * angle) * x + sin(a * angle) * z) / sin(angle);
+	}
+	*/
+	aiQuaternion Out;
+	aiQuaternion StartRotationQ(start.w, start.x, start.y, start.z);
+	aiQuaternion EndRotationQ(end.w, end.x, end.y, end.z);
+	aiQuaternion::Interpolate(Out, StartRotationQ, EndRotationQ, Factor);
+
+	glm::quat qOut(Out.w, Out.x, Out.y, Out.z);
+	return qOut;
+}
+
+static glm::quat EulerAngleInterpolation(glm::quat start, glm::quat end, float Factor)
+{
+	// Online research implies that you can't interpolate between two Euler Angles
+	// Additionally and this applies to Matrix interpolation but my internal
+	// representation of Orientation is by Quaternions to begin with.
+	// I could convert quaternions into EUler Angles, and then interpolate them as Vectors;
+	// and then convert them back to Quaternions.
+	glm::vec3 startEuler = glm::eulerAngles(start);
+	glm::vec3 endEuler = glm::eulerAngles(end);
+
+	glm::vec3 finalEuler = LinearLerp(startEuler, endEuler, Factor);
+
+	// There are probably loads of issues with this.
+	return glm::quat(finalEuler);
+}
+
+static glm::quat MatrixInterpolation(glm::quat start, glm::quat end, float Factor)
+{
+	// My orientations are to begin with stored as quaternions
+	// I can convert them to Matrices easily
+	// but to gain useful information I still need to decompose them
+	// into rotational components anyways, which is a quaternion?
+	// There is some idea of using offset matrices but for the life of me
+	// I can't figure out how this would work.
+	glm::mat4 startRot = glm::toMat4(start);
+	glm::mat4 endRot = glm::toMat4(end);
+
+	glm::quat finalRot = LinearLerp(glm::quat_cast(startRot), glm::quat_cast(endRot), Factor);
+
+	// There are probably loads of issues with this.
+	return finalRot;
+}
+
+void bMesh::CalcInterpolatedRotation(aiQuaternion& Out, float AnimationTime, const aiNodeAnim* pNodeAnim, int InterpolationMode)
+{
+	// we need at least two values to interpolate...
+	if (pNodeAnim->mNumRotationKeys == 1) {
+		Out = pNodeAnim->mRotationKeys[0].mValue;
+		return;
+	}
+
+	glm::uint RotationIndex = FindRotation(AnimationTime, pNodeAnim);
+	glm::uint NextRotationIndex = (RotationIndex + 1);
+	assert(NextRotationIndex < pNodeAnim->mNumRotationKeys);
+	float DeltaTime = pNodeAnim->mRotationKeys[NextRotationIndex].mTime - pNodeAnim->mRotationKeys[RotationIndex].mTime;
+	//
+	float Factor = (AnimationTime - (float)pNodeAnim->mRotationKeys[RotationIndex].mTime) / DeltaTime;
+	assert(Factor >= 0.0f && Factor <= 1.0f);
+	const aiQuaternion& StartRotationQ = pNodeAnim->mRotationKeys[RotationIndex].mValue;
+	const aiQuaternion& EndRotationQ = pNodeAnim->mRotationKeys[NextRotationIndex].mValue;
+
+	const glm::quat StartRotation(StartRotationQ.w,
+		StartRotationQ.x,
+		StartRotationQ.y,
+		StartRotationQ.z);
+
+	const glm::quat EndRotation(EndRotationQ.w,
+		EndRotationQ.x,
+		EndRotationQ.y,
+		EndRotationQ.z);
+
+	glm::quat outRotation;
+	switch (InterpolationMode)
+	{
+	case 0:
+		// Linear Lerp
+		outRotation = LinearLerp(StartRotation, EndRotation, Factor);
+		Out = aiQuaternion(outRotation.w, outRotation.x, outRotation.y, outRotation.z);
+		break;
+	case 1:
+		// Spherical Lerp 
+		// Basically, SLERP works better (i.e looks better)
+		// than LERP whenever two rotations are "far" apart.
+		// Wikipedia LinK: https://en.wikipedia.org/wiki/Slerp
+		outRotation = SphericalLerp(StartRotation, EndRotation, Factor);
+		Out = aiQuaternion(outRotation.w, outRotation.x, outRotation.y, outRotation.z);
+		//aiQuaternion::Interpolate(Out, StartRotationQ, EndRotationQ, Factor);
+		break;
+	case 2:
+		// EUler Angles Interpolation
+		outRotation = EulerAngleInterpolation(StartRotation, EndRotation, Factor);
+		Out = aiQuaternion(outRotation.w, outRotation.x, outRotation.y, outRotation.z);
+		break;
+	case 3:
+		// Matrix Interpolation
+		outRotation = MatrixInterpolation(StartRotation, EndRotation, Factor);
+		Out = aiQuaternion(outRotation.w, outRotation.x, outRotation.y, outRotation.z);
+		break;
+	}
+	
+
 	Out = Out.Normalize();
 }
 
@@ -1758,6 +2027,7 @@ glm::vec3 bMesh::FindNodePosition(const std::string NodeName)
 {
 
 	glm::mat4 myMatrix = glm::mat4(1.0);
+	// uses 
 	FindNode(NodeName, this->m_pScene->mRootNode, glm::mat4(1.0), myMatrix);
 
 	glm::vec3 myPos;
@@ -1766,6 +2036,28 @@ glm::vec3 bMesh::FindNodePosition(const std::string NodeName)
 	myPos.z = myMatrix[3][2];
 
 	return myPos;
+}
+
+void bMesh::FindLocalTransform(const std::string NodeToFind, const aiNode* pNode,
+	glm::mat4& TransformMatrixToReturn)
+{
+	std::string NodeName(pNode->mName.data);
+	glm::mat4 NodeTransformation = glm::mat4();
+	// Copy local transformation of the current node
+	CopyaiMat(&pNode->mTransformation, NodeTransformation);
+
+	// Is the current node the node we are looking for?
+	if (NodeToFind.compare(NodeName) == 0)
+	{
+		const glm::mat4 mat = NodeTransformation;
+		TransformMatrixToReturn = mat;
+	}
+	else
+	{
+		for (glm::uint i = 0; i < pNode->mNumChildren; i++) {
+			FindLocalTransform(NodeToFind, pNode->mChildren[i], TransformMatrixToReturn);
+		}
+	}
 }
 
 void bMesh::FindNode(const std::string BoneToFind, const aiNode* pNode, const glm::mat4& ParentTransform,
@@ -1865,20 +2157,20 @@ void bMesh::ReadNodeTreeToCreateBoneMesh(const aiNode* pNode)
 
 	if (pNode->mNumChildren > 0)
 	{
-		printf("%s's children(%d) are: \n", nodeName, pNode->mNumChildren);
+		//printf("%s's children(%d) are: \n", nodeName, pNode->mNumChildren);
 		for (int i = 0; i < pNode->mNumChildren; i++)
 		{
 			std::string childNodeName(pNode->mChildren[i]->mName.data);
-			printf(" |----->%s \n", childNodeName);
-			// Head Position
+			//printf(" |----->%s \n", childNodeName);
+			// Head Position // uses findnode
 			glm::vec3 head = FindNodePosition(nodeName);
 			// Tail Position
 			glm::vec3 tail = FindNodePosition(childNodeName);
 			float length = glm::distance(tail, head);
-			printf("Distance from %s to %s is %.3f, from: \n", nodeName, childNodeName, length);
-			PrintVector3(head);
-			printf("to: \n");
-			PrintVector3(tail);
+			//printf("Distance from %s to %s is %.3f, from: \n", nodeName, childNodeName, length);
+			//PrintVector3(head);
+			//printf("to: \n");
+			//PrintVector3(tail);
 			// recursively check each child
 			if (nodeName.compare("Armature") == 0 || nodeName.compare("RootNode") == 0
 				|| nodeName.compare("Base") == 0 || nodeName.compare("cheb.000") == 0)
@@ -1889,44 +2181,48 @@ void bMesh::ReadNodeTreeToCreateBoneMesh(const aiNode* pNode)
 			else
 			{
 				// Create mesh
-				// Continue
-				ReadNodeTreeToCreateBoneMesh(pNode->mChildren[i]);
-				float scaleFactor = 1;
-				Orientation boneOrientation;
-				//boneOrientation.m_translation = FindMidPoint(head, tail);
-				boneOrientation.m_translation = head;
-				glm::mat4 mMatrix = glm::mat4(1.0);
-				FindNode(nodeName, this->m_pScene->mRootNode, glm::mat4(1.0), mMatrix);
-				mMatrix = mMatrix * m_GlobalInverseTransform;
-				glm::vec3 scale = glm::vec3(1.0);
-				glm::quat rot;
-				glm::vec3 trans;
-				glm::vec4 per;
-				glm::decompose(mMatrix, scale, rot, trans, trans, per);
-				rot = glm::conjugate(rot);
-
-				boneOrientation.m_rotation.x = glm::degrees(glm::eulerAngles(rot)).x;
-				boneOrientation.m_rotation.y = glm::degrees(glm::eulerAngles(rot)).y;
-				boneOrientation.m_rotation.z = glm::degrees(glm::eulerAngles(rot)).z;
-				boneOrientation.m_scale = glm::vec3(1, 1, 1);
-				BasicMesh* skeletonBone = new BasicMesh();
-				if (!skeletonBone->CreatePrism((GLfloat)0, (GLfloat)length, "StandardCube.fbx"))
+				// first child only create a bone
+				if (i == 0)
 				{
-					printf("Error Creating prism. \n");
-					return;
+					float scaleFactor = 1;
+					Orientation boneOrientation;
+					//boneOrientation.m_translation = FindMidPoint(head, tail);
+					boneOrientation.m_translation = head;
+					glm::mat4 mMatrix = glm::mat4(1.0);
+					// FindNode vs FindBone
+					FindNode(nodeName, this->m_pScene->mRootNode, glm::mat4(1.0), mMatrix);
+					mMatrix = m_GlobalInverseTransform * mMatrix;
+					glm::vec3 scale = glm::vec3(1.0);
+					glm::quat rot;
+					glm::vec3 trans;
+					glm::vec4 per;
+					glm::decompose(mMatrix, scale, rot, trans, trans, per);
+					rot = glm::conjugate(rot);
+
+					boneOrientation.m_rotation.x = glm::degrees(glm::eulerAngles(rot)).x;
+					boneOrientation.m_rotation.y = glm::degrees(glm::eulerAngles(rot)).y;
+					boneOrientation.m_rotation.z = glm::degrees(glm::eulerAngles(rot)).z;
+					boneOrientation.m_scale = glm::vec3(1, 1, 1);
+					BasicMesh* skeletonBone = new BasicMesh();
+					if (!skeletonBone->CreatePrism((GLfloat)0, (GLfloat)length, "StandardCube.fbx"))
+					{
+						printf("Error Creating prism. \n");
+						return;
+					}
+
+					skeletonBone->GetOrientation().m_scale = glm::vec3(0.125f, 1, 0.125f);
+					//skeletonBone->GetOrientation().m_scale = glm::vec3(1, 1, 1);
+					skeletonBone->GetOrientation().m_translation = boneOrientation.m_translation;
+					skeletonBone->GetOrientation().m_rotation = boneOrientation.m_rotation;
+
+					Orientation& tempOrient = skeletonBone->GetOrientation();
+					boneOrientation.m_scale = glm::vec3(tempOrient.m_scale.x, (tempOrient.m_scale.y * scaleFactor), tempOrient.m_scale.z);
+					tempOrient = boneOrientation;
+
+					skeletonBone->ObjName = nodeName;
+					m_BasicMeshSkeleton.push_back(skeletonBone);
 				}
-
-				skeletonBone->GetOrientation().m_scale = glm::vec3(0.0625f, 1, 0.0625f);
-				//skeletonBone->GetOrientation().m_scale = glm::vec3(1, 1, 1);
-				skeletonBone->GetOrientation().m_translation = boneOrientation.m_translation;
-				skeletonBone->GetOrientation().m_rotation = boneOrientation.m_rotation;
-
-				Orientation& tempOrient = skeletonBone->GetOrientation();
-				boneOrientation.m_scale = glm::vec3(tempOrient.m_scale.x, (tempOrient.m_scale.y * scaleFactor), tempOrient.m_scale.z);
-				tempOrient = boneOrientation;
-
-				skeletonBone->ObjName = childNodeName;
-				m_BasicMeshSkeleton.push_back(skeletonBone);
+				ReadNodeTreeToCreateBoneMesh(pNode->mChildren[i]);
 			}
 			
 		}
@@ -2159,6 +2455,48 @@ void bMesh::rotateBoneAtFrame(std::string boneName, glm::vec3 oldPos, glm::vec3 
 	_node->mRotationKeys[frame].mValue = aiQuaternion(_rotation.w, _rotation.x, _rotation.y, _rotation.z);
 }
 
+
+
+void bMesh::rotateBone(std::string boneName, glm::vec3 old_mPos, glm::vec3 new_mPos, int WINDOW_WIDTH, int WINDOW_HEIGHT, glm::vec3 c_Pos)
+{
+	if (m_BoneMapping.find(boneName) == m_BoneMapping.end())
+	{
+		return;
+	}
+
+	glm::vec3 va = Blayne_3D_Math::get_arcball_vector(old_mPos.x, old_mPos.y, WINDOW_WIDTH, WINDOW_HEIGHT);
+	glm::vec3 vb = Blayne_3D_Math::get_arcball_vector(new_mPos.x, new_mPos.y, WINDOW_WIDTH, WINDOW_HEIGHT);
+	float angle = glm::acos((glm::min)(1.0f, (float)glm::dot(va, vb)));
+	//angle /= 10;
+	glm::vec3 cross = glm::cross(va, vb);
+	if (glm::dot(glm::vec3(0, 0, 1), cross) < 0)
+	{
+		angle = -angle;
+	}
+
+	glm::mat4 LocalNodeTransform;
+	glm::mat4 GlobalNodeTransform;
+	// Copy localtransform for the node
+	CopyaiMat(&this->m_pScene->mRootNode->FindNode(boneName.c_str())->mTransformation, LocalNodeTransform);
+	// Find the global transformation for the node.
+	FindGlobalTransform(boneName, this->getScene()->mRootNode, glm::mat4(1.0), GlobalNodeTransform);
+
+	glm::vec3 gTrans;
+	glm::decompose(GlobalNodeTransform, glm::vec3(), glm::quat(), gTrans, glm::vec3(), glm::vec4());
+	glm::vec3 cam = glm::vec3(-10, gTrans.y, gTrans.z);
+	glm::mat4 newRotation = glm::rotate(angle, glm::normalize(c_Pos - gTrans));
+
+	glm::vec3 trans;
+	glm::quat rotation;
+	glm::decompose(LocalNodeTransform, glm::vec3(), rotation, trans, glm::vec3(), glm::vec4());
+	newRotation = newRotation * glm::toMat4(glm::conjugate(rotation));
+	glm::mat4 newTransformationMatrix = glm::translate(trans) * newRotation;
+	LocalNodeTransform = newTransformationMatrix;
+
+	CopyGlMatToAiMat(LocalNodeTransform, this->m_pScene->mRootNode->FindNode(boneName.c_str())->mTransformation);
+	UpdateSkeleton();
+}
+
 void bMesh::rotateBone(std::string boneName, glm::vec3 oldPos, glm::vec3 newPos)
 {
 	//glm::mat4 NodeTransformation = glm::mat4(1.0);
@@ -2185,7 +2523,7 @@ void bMesh::rotateBone(std::string boneName, glm::vec3 oldPos, glm::vec3 newPos)
 	
 
 	glm::mat4 View = glm::lookAt(
-		glm::vec3(0, 0, 1), // Camera in World Space
+		glm::vec3(0, 0, -1), // Camera in World Space
 		glm::vec3(0, 0, 0), // and looks at 
 		glm::vec3(0, 1, 0)  // Head is up (set to 0,-1,0 to look upside-down)
 		);
@@ -2271,6 +2609,7 @@ void bMesh::UpdateRootBone(glm::mat4 rot)
 
 int bMesh::currID = 0;
 
+// pOSSIBLY DEPRECRIATED
 void bMesh::BoneTransformSimplifiedNoInterpolation(std::vector<glm::mat4>& Transforms)
 {
 	glm::mat4 Identity = glm::mat4(1.0f);
@@ -2282,7 +2621,7 @@ void bMesh::BoneTransformSimplifiedNoInterpolation(std::vector<glm::mat4>& Trans
 		Transforms[i] = m_BoneInfo[i].FinalTransformation;
 	}
 
-	UpdateSkeleton(this->getScene()->mMeshes[0]);
+	//UpdateSkeleton(this->getScene()->mMeshes[0]);
 }
 
 void bMesh::ReadNodeHeirarchySimplified(const aiNode* pNode, const glm::mat4& ParentTransform)
@@ -2305,48 +2644,60 @@ void bMesh::ReadNodeHeirarchySimplified(const aiNode* pNode, const glm::mat4& Pa
 	}
 }
 
-void bMesh::UpdateSkeleton(const aiMesh* pMesh)
+// Lets use recursion again
+void bMesh::UpdateSkeleton()
 {
+	ReadNodeTreeToUpdateSkeleton(this->m_pScene->mRootNode);
+}
 
-	//printf("Updating Skeleton \n");
-	for (glm::uint i = 0; i < pMesh->mNumBones; i++)
+void bMesh::ReadNodeTreeToUpdateSkeleton(const aiNode* pNode)
+{
+	std::string nodeName(pNode->mName.data);
+	if (pNode->mNumChildren > 0)
 	{
-		std::string BoneName(pMesh->mBones[i]->mName.data);
-		// Leaf node?
-		int numChildren = this->getScene()->mRootNode->FindNode(BoneName.c_str())->mNumChildren;
-		//printf("numChildren of %s is %d \n", BoneName, numChildren);
-		if (BoneName.compare("Root") == 0 || BoneName.compare("Armature") == 0 || numChildren == 0)
+		for (int i = 0; i < pNode->mNumChildren; i++)
 		{
-			continue;
-		}
-
-		// Temporary Head
-		glm::vec3 head = FindBonePosition(BoneName);
-		// Temporary tail
-		std::string TailBoneName(this->getScene()->mRootNode->FindNode(BoneName.c_str())->mChildren[0]->mName.data);
-		glm::vec3 tail = FindBonePosition(TailBoneName);
-		//_bone->position = FindMidPoint(head, tail);
-
-		glm::mat4 NodeTransform = glm::mat4(1.0);
-		for each (skeleton_mesh var in skeleton)
-		{
-			if (var._BoneName.compare(BoneName) == 0)
+			std::string childNodeName(pNode->mChildren[i]->mName.data);
+			// Head Position
+			glm::vec3 head = FindNodePosition(nodeName);
+			// recursively check each child
+			if (nodeName.compare("Armature") == 0 || nodeName.compare("RootNode") == 0
+				|| nodeName.compare("Base") == 0 || nodeName.compare("cheb.000") == 0)
 			{
-				FindBone(var._BoneName, this->getScene()->mRootNode,
-					glm::mat4(1.0), NodeTransform);
-				glm::vec3 scale = glm::vec3(1.0);
-				glm::quat rot;
-				glm::vec3 trans;
-				glm::vec4 per;
-				glm::decompose(NodeTransform, scale, rot, trans, trans, per);
-				var._BoneMesh->rotation = glm::mat4_cast(glm::conjugate(rot));
-				var._BoneMesh->scale = glm::scale(scale);
-				var._BoneMesh->mTransform = NodeTransform;
-				var._BoneMesh->position = FindMidPoint(head, tail);
+				// Continue
+				ReadNodeTreeToUpdateSkeleton(pNode->mChildren[i]);
 			}
+			else
+			{
+				if (i == 0)
+				{
+					float scaleFactor = 1;
+					glm::mat4 GlobalTransform = glm::mat4(1.0);
+					// FindNode vs FindBone
+					FindGlobalTransform(nodeName, this->m_pScene->mRootNode, glm::mat4(1.0), GlobalTransform);
+					glm::quat rot;
+					glm::decompose(GlobalTransform, glm::vec3(), rot, glm::vec3(), glm::vec3(), glm::vec4());
+					rot = glm::conjugate(rot);
+					std::string myString = nodeName;
+					auto it = find_if(m_BasicMeshSkeleton.begin(), m_BasicMeshSkeleton.end(), [&myString](const BasicMesh* obj) {return (obj->ObjName.compare(myString) == 0); });
+					int index;
+					if (it != m_BasicMeshSkeleton.end())
+					{
+						// found element. it is an iterator to the first matching element.
+						// if you really need the index, you can also get it:
+						index = std::distance(m_BasicMeshSkeleton.begin(), it);
+					}
+
+					m_BasicMeshSkeleton[index]->GetOrientation().m_translation = head;
+					m_BasicMeshSkeleton[index]->GetOrientation().m_rotation = glm::degrees(glm::eulerAngles(rot));
+				}
+				ReadNodeTreeToUpdateSkeleton(pNode->mChildren[i]);
+			}
+
 		}
 	}
 }
+
 
 void bMesh::InsertKeyFrame(glm::uint frame, int _animation, const aiNode* p_rootNode, aiScene* _scene)
 {
@@ -2405,6 +2756,7 @@ void bMesh::InsertKeyFrame(glm::uint frame, int _animation, const aiNode* p_root
 			std::copy(m_PositionKeys.begin(), m_PositionKeys.end(), _scene->mAnimations[_animation]->mChannels[i]->mPositionKeys);
 			_scene->mAnimations[_animation]->mChannels[i]->mNumPositionKeys++;
 		}
+		
 		// Scale Keys
 		m_keyframe = -1;
 		for (glm::uint j = 0; j < _AnimBone->mNumScalingKeys; j++) {
@@ -2424,7 +2776,7 @@ void bMesh::InsertKeyFrame(glm::uint frame, int _animation, const aiNode* p_root
 
 			aiVectorKey m_ScalingKey;
 			m_ScalingKey.mTime = frame;
-			m_ScalingKey.mValue = aiVector3D();
+			m_ScalingKey.mValue = aiVector3D(1,1,1);
 			// Insert the new entry
 			m_ScalingKeys.insert(std::upper_bound(m_ScalingKeys.begin(), m_ScalingKeys.end(), m_ScalingKey), m_ScalingKey);
 			delete(_scene->mAnimations[_animation]->mChannels[i]->mScalingKeys);
@@ -2432,6 +2784,7 @@ void bMesh::InsertKeyFrame(glm::uint frame, int _animation, const aiNode* p_root
 			std::copy(m_ScalingKeys.begin(), m_ScalingKeys.end(), _scene->mAnimations[_animation]->mChannels[i]->mScalingKeys);
 			_scene->mAnimations[_animation]->mChannels[i]->mNumScalingKeys++;
 		}
+		
 		// Rotation Keys
 		m_keyframe = -1;
 		for (glm::uint j = 0; j < _AnimBone->mNumRotationKeys; j++) {
@@ -2606,6 +2959,28 @@ void bMesh::FindLocalScale(const std::string BoneToFind, const aiNode* pNode, co
 	}
 }
 
+void bMesh::InsertKeyframeAtFrame(float frame, std::vector<glm::mat4>& Transforms, aiScene* _scene,
+	int _anim)
+{
+	glm::mat4 Identity = glm::mat4(1.0f);
+	InsertKeyFrame(frame, _anim, _scene->mRootNode, _scene);
+
+	if (_scene->HasAnimations())
+	{
+		ReadNodeHeirarchyToInsertAtFrame(frame, _scene->mRootNode, Identity, _scene, _anim);
+		Transforms.clear();
+		Transforms.resize(m_NumBones);
+
+		for (glm::uint i = 0; i < m_NumBones; i++) {
+			Transforms[i] = m_BoneInfo[i].FinalTransformation;
+		}
+	}
+	else
+	{
+		printf("Error, no animations present.");
+	}
+}
+
 void bMesh::BoneTransformAtFrame(float frame, std::vector<glm::mat4>& Transforms, aiScene* _scene,
 	int _anim)
 {
@@ -2694,6 +3069,70 @@ void bMesh::KinectBoneTransformAtFrame(int frame, std::vector<glm::mat4>& Transf
 	else
 	{
 		printf("Error, no animations present.");
+	}
+}
+
+void bMesh::ReadNodeHeirarchyToInsertAtFrame(int frame, const aiNode* pNode,
+	const glm::mat4& ParentTransform, aiScene* _scene, int _animationToInsertInto)
+{
+	std::string NodeName(pNode->mName.data);
+	glm::mat4 NodeTransformation = glm::mat4();
+	CopyaiMat(&pNode->mTransformation, NodeTransformation);
+	std::string BoneName(pNode->mName.data);
+	const aiNodeAnim* _BoneAnimNode = FindNodeAnim(_scene->mAnimations[_animationToInsertInto], BoneName);
+	glm::mat4 GlobalTransformation;
+
+	GlobalTransformation = ParentTransform * NodeTransformation;
+
+
+	if (m_BoneMapping.find(NodeName) != m_BoneMapping.end()) {
+		glm::uint BoneIndex = m_BoneMapping[NodeName];
+		m_BoneInfo[BoneIndex].FinalTransformation = m_GlobalInverseTransform * GlobalTransformation * m_BoneInfo[BoneIndex].BoneOffset;
+
+		// Insert new keyframe
+		glm::quat globalRot;
+		glm::vec3 globalPos;
+		glm::vec3 globalScale;
+		glm::decompose(NodeTransformation, globalScale, globalRot, globalPos, glm::vec3(1.0), glm::vec4(1.0));
+		globalRot = glm::conjugate(globalRot);
+		int closectRotKeyFrame = 0; //FindRotation(frame, _BoneAnimNode);
+		std::vector<aiVectorKey> vecKeys(_BoneAnimNode->mScalingKeys, _BoneAnimNode->mScalingKeys + _BoneAnimNode->mNumRotationKeys);
+		for (glm::uint j = 0; j < _BoneAnimNode->mNumRotationKeys; j++) {
+			if (frame <= (int)_BoneAnimNode->mRotationKeys[j].mTime) {
+				closectRotKeyFrame = j;
+				break;
+			}
+		}
+
+		int closectPosKeyFrame = 0;//FindPosition(frame, _BoneAnimNode);
+		for (glm::uint j = 0; j < _BoneAnimNode->mNumPositionKeys; j++) {
+			if (frame <= (int)_BoneAnimNode->mPositionKeys[j].mTime) {
+				closectPosKeyFrame = j;
+				break;
+			}
+		}
+
+		int closectScalKeyFrame = 0; //FindScaling(frame, _BoneAnimNode);
+		for (glm::uint j = 0; j < _BoneAnimNode->mNumScalingKeys; j++) {
+			if (frame <= (int)_BoneAnimNode->mScalingKeys[j].mTime) {
+				closectScalKeyFrame = j;
+				break;
+			}
+		}
+
+		_BoneAnimNode->mRotationKeys[closectRotKeyFrame].mValue = aiQuaternion(globalRot.w, globalRot.x, globalRot.y, globalRot.z);
+		_BoneAnimNode->mPositionKeys[closectPosKeyFrame].mValue = aiVector3D(globalPos.x, globalPos.y, globalPos.z);
+		_BoneAnimNode->mScalingKeys[closectScalKeyFrame].mValue = aiVector3D(globalScale.x, globalScale.y, globalScale.z);
+
+		//printf("%s: Animation Duration (%d), Current Anim Time (%d), Inserted frame at Rot(%d);Pos(%d);Scaling(%d).\n",
+		//	NodeName.c_str(),
+		//	(int)_scene->mAnimations[_animationToInsertInto]->mDuration,
+		//	frame, closectRotKeyFrame, closectPosKeyFrame, closectScalKeyFrame);
+
+	}
+
+	for (glm::uint i = 0; i < pNode->mNumChildren; i++) {
+		ReadNodeHeirarchyToInsertAtFrame(frame, pNode->mChildren[i], GlobalTransformation, _scene, _animationToInsertInto);
 	}
 }
 
@@ -2812,12 +3251,7 @@ void bMesh::KinectReadNodeHeirarchy(const aiNode* pNode,
 	std::vector<std::string>::iterator it;
 	it = std::find(m_mask.begin(), m_mask.end(), NodeName);
 	if (it != m_mask.end())
-	{
-		if (NodeName == "Foot.L" || NodeName == "Foot.R")
-		{
-			printf("Mapping Kinect Joint to: %s \n", NodeName.c_str());
-		}
-		
+	{		
 		glm::mat4 GlobalKinectRotation = glm::mat4(1.0);
 		glm::quat _rotation = m_JointNameOrientations[NodeName].m_orientation;
 		glm::quat parentRotation;
@@ -3031,4 +3465,28 @@ void bMesh::PadImportedAnimationFrames(aiScene* _scene)
 	printf("Value (%u) \n", _scene->mAnimations[0]->mChannels[0]->mPositionKeys[0].mValue.x);
 
 	//std::cin.get();
+}
+
+void bMesh::FindGlobalTransform(const std::string NodeToFind,
+	const aiNode* pNode,
+	glm::mat4 ParentTransform,
+	glm::mat4& TransformMatrixToReturn)
+{
+	std::string NodeName(pNode->mName.data);
+	glm::mat4 NodeTransformation = glm::mat4();
+	CopyaiMat(&pNode->mTransformation, NodeTransformation);
+
+	glm::mat4 GlobalTransformation = glm::mat4();
+	GlobalTransformation = ParentTransform * NodeTransformation;
+
+	if (NodeName.compare(NodeToFind) == 0)
+	{
+		TransformMatrixToReturn = m_GlobalInverseTransform * GlobalTransformation;
+	}
+	else
+	{
+		for (glm::uint i = 0; i < pNode->mNumChildren; i++) {
+			FindGlobalTransform(NodeToFind, pNode->mChildren[i], GlobalTransformation, TransformMatrixToReturn);
+		}
+	}
 }

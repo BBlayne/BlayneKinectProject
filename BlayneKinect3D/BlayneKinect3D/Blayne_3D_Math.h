@@ -45,5 +45,6 @@ public:
 	static glm::mat4 InitCameraTransform(const glm::vec3& Position, const glm::vec3& LookAt, const glm::vec3& Up);
 	static glm::mat4 InitPersProjTransform(const PersProjInfo& p);
 	static glm::mat4 InitOrthoProjTransform(const OrthoProjInfo& p);
+	static glm::vec3 get_arcball_vector(int x, int y, int WIDTH, int HEIGHT);
 private:
 };

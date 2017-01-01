@@ -440,24 +440,28 @@ void BlayneKinect::TickForJointsInfo(float deltaTime)
 		hr = m_bodyFrameReader->AcquireLatestFrame(&bodyFrame);
 		if (FAILED(hr))
 		{
-			printf("Oh no! Failed to get latest body frame!\n");
+			if (!isSilent)
+				printf("Oh no! Failed to get latest body frame!\n");
 			if (m_sensor)
 			{
 				BOOLEAN isSensorAvailable = false;
 				hr = m_sensor->get_IsAvailable(&isSensorAvailable);
 				if (SUCCEEDED(hr) && !isSensorAvailable)
 				{
-					printf("Sensor not available!!\n");
+					if (!isSilent)
+						printf("Sensor not available!!\n");
 					return;
 				}
 				else
 				{
-					printf("Sensor is available!!\n");
+					if (!isSilent)
+						printf("Sensor is available!!\n");
 					return;
 				}
 			}
 			else {
-				std::cerr << "Trouble reading the body frame.\n";
+				if (!isSilent)
+					std::cerr << "Trouble reading the body frame.\n";
 				return;
 			}
 		}

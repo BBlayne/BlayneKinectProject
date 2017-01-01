@@ -319,8 +319,8 @@ bool BasicMesh::CreatePrism(GLfloat pointA, GLfloat pointB, const std::string& F
 	indexVBO(Positions, TexCoords, Normals, Indices, indexed_vertices, indexed_uvs,
 		indexed_normals);
 
-	printf("NumFaces %d, numVerts %d, numNormals %d, numIndices %d \n", Positions.size() / 3,
-		Positions.size(), Normals.size(), Indices.size());
+	//printf("NumFaces %d, numVerts %d, numNormals %d, numIndices %d \n", Positions.size() / 3,
+	//	Positions.size(), Normals.size(), Indices.size());
 
 	glm::uint NumVertices = 0;
 	glm::uint NumIndices = 0;

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Blayne's 3D Kinect Project: Issues</title>
+<link rel="stylesheet" href="Main.css">
+</head>
+<body>
+
+
+<h1>Issues</h1>
+<div id="Content" style="width: 600px;">
+<p>
+Numerous issues were encountered throughout the course of the development
+process for this project.<br>
+
+Most of them were solved to varying degrees of success.
+</p>
+<ul>
+	<li>
+	<p>The Kinect basically should be used with two people as inserting
+	key frames is difficult alone to operate the keyboard and pose
+	at the same time, and is kinda tiring.
+	</p>
+	</li>
+	<li>
+	<p>The Bone orientation in blender appeared to affect the apparent orientation of
+	the various bones (mainly the arms).</p>
+	</li>
+	<li>
+	<p>The Microsoft Kinect stores joint orientations in World Coordinates.
+	Additionally they have their own bone roll orientation that differed
+	from blender's causing difficulties. It isn't clear to me if this was
+	reconciled.</p>
+	</li>
+	<li>
+	<p>Each library or online source used their own representation for either:
+	Orientations/Quaternions/Matrices/Vectors, etc. Requiring significant testing
+	to reconcile and convert them correctly.</p>
+	</li>
+	<li>
+	<p>Euler & Matrix orientations I did not write appropriate notes for,
+	so if they were properly with suggested theory behind them covered in class,
+	I was not able to recreate the processes through searching online and
+	did my best guess.</p>
+	</li>
+	<li>
+	<p>Conversion from my original code base to a "better" code base that was meant
+	to be better organized and maintainable was fraught with issues and various
+	transformations breaking unexpectedly.
+	
+	For example rotatin a bone with the camera rotated "worked" originally
+	in my homework code, but in my project code where I used a different implementation
+	it broke; right now if the camera is rotated around the origin, 
+	I use a vector from the bone location to the camera position to
+	determine a rotation axis; this has a slight tilt,
+	it would work perfectly if I translated the camera to always be at the same
+	"height"/relative position so from the bone's perspective
+	the camera is directly orthogonal.</p>
+	</li>
+</ul>
+</div>
+
+<div id="tableofcontents" style="width: 600px">
+<h4>Index</h4>
+<ol>
+	<li><p><a href="Main.html">Back to Main/Index</a></p></li>
+	<li><p><a href="Kinect.html">Usage (Kinect)</a></p></li>
+	<li><p><a href="Assignment1.html">Usage (Assignment 1).</a></p></li>
+	<li><p><a href="Assignment2.html">Usage (Assignment 2).</a></p></li>
+	<li><p><a href="Blender.html">Blender.</a></p></li>
+	<li><p><a href="Interpolation.html">Interpolation.</a></p></li>
+	<li><p><a href="Structure.html">Project/Code Structure.</a></p></li>
+	<li><p><a href="Issues.html">Issues.</a></p></li>
+</ol>
+</div>
+<div id="footer" style="width: 100%;">
+<p>(c)Blayne Bradley 2016</p> 
+</div>
+</body>
+</html>

@@ -90,6 +90,11 @@ public:
 		SetCamera(camera.GetCameraPosition(), camera.GetCameraLookDirection(), camera.GetCameraUpDirection());
 	}
 
+	glm::vec3 GetCameraPos() const
+	{
+		return this->m_Camera.Pos;
+	}
+
 	void Orient(const Orientation& o)
 	{
 		m_scale = o.m_scale;

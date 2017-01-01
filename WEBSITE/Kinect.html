@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Blayne's 3D Kinect Project: Usage (Kinect)</title>
+<link rel="stylesheet" href="Main.css">
+</head>
+<body>
+
+<h1>Usage Kinect</h1>
+<h3>Note: Best used in a team of two!</h3>
+<img src="Kinect.png" alt="Main view of app">
+<h5>(Reference)</h5>
+<div id="Content" style="width: 600px;">
+<p>
+	General usage (albeit with an earlier version) can be found here: <a href="https://www.youtube.com/watch?v=B0PSOhqDQMI">Youtube</a>
+	In the above image is the User Interface for the program.
+	Everything required to interact with the program is located in the left hand menu.
+	The following options and information is displayed in order:
+</p>
+<ul>
+	<li><p>Interpolation Mode.</p>
+		<ul>
+			<li><p>LERP.</p></li>
+			<li><p>SLERP.</p></li>
+			<li><p>Euler.</p></li>
+			<li><p>Matrix.</p></li>
+		</ul>
+	</li>
+	
+	<li><p>Selected Mesh.</p>
+		<ul>
+			<li><p>"George".</p></li>
+			<li><p>"Dave".</p></li>
+			<li><p>"Chebadiah aka Cheb".</p></li>
+			<li><p>"Bone" (Test Only).</p></li>
+		</ul>	
+	</li>
+	<li><p>Selected Animation Mode.</p>
+		<ul>
+			<li><p>TPOSE.</p></li>
+			<li><p>Free.</p></li>
+			<li><p>View.</p></li>
+			<li><p>Insert/Kinect.</p></li>
+			<li><p>Insert/Pose.</p></li>
+			<li><p>Player.</p></li>
+		</ul>	
+	</li>
+	<li><p>Current Animation.</p>
+		<ul>
+			<li><p>Depends on Imported Mesh.</p></li>
+			<li><p>E.g: "Armature|Walk".</p></li>
+			<li><p>E.g: "New animation".</p></li>
+		</ul>	
+	</li>
+	<li><p>Camera.</p>
+		<ul>
+			<li><p>Position.</p></li>
+			<li><p>Direction.</p></li>
+		</ul>	
+	</li>
+	<li><p>Object Rotation.</p></li>
+	<li><p>Camera Rotation.</p></li>
+	<li><p>Object Position.</p></li>
+	<li><p>Lighting.</p></li>
+	<li><p>Insert Keyframe (Button).</p></li>
+	<li><p>Current Frame/Animation Time.</p></li>
+	<li><p>Set Duration (Button).</p></li>
+	<li><p>Duration (Amount).</p></li>
+</ul>
+</div>
+<div id="Explanation" style="width: 600px;">
+<h3>Interpolation Mode</h3>
+<p>
+Four interpolation modes, these are dropdown menu's where simple left clicking 
+selects the mode and enables it immediately if the correct
+animation mode/animation is selected.
+</p>
+<br>
+<h4>LERP</h4>
+<p>
+Linerally interpolates the rotation transformations by the formula:
+</p>
+<code>
+x * ((Type)(1) - a) + (y * a)
+</code>
+<p>
+Where x,y are Quaternions/Vectors and a is a floating point number representing the
+time factor.
+
+Each step is equidistant across the the entire interpolation.
+</p>
+
+
+<h4>SLERP</h4>
+<p>
+Spherical interpolation where the interpolation occurs along mapped quarter segments
+of a circle (Not equidistant). 
+</p>
+<code>
+	quat z = y;</br>
+
+	float cosTheta = dot(x, y);</br>
+
+	// If cosTheta < 0, the interpolation will take the long way around the sphere.</br>
+	// To fix this, one quat must be negated.</br>
+	if (cosTheta < (float)0)</br>
+	{</br>
+		z        = -y;</br>
+		cosTheta = -cosTheta;</br>
+	}</br>
+
+	// Perform a linear interpolation when cosTheta is </br>
+	//close to 1 to avoid side effect of sin(angle) becoming a zero denominator</br>
+	if(cosTheta > (float)(1) - (float)epsilon())</br>
+	{</br>
+	// Linear interpolation</br>
+		return quat(</br>
+		mix(x.w, z.w, a),</br>
+		mix(x.x, z.x, a),</br>
+		mix(x.y, z.y, a),</br>
+		mix(x.z, z.z, a));</br>
+	}</br>
+	else</br>
+	{</br>
+	// Essential Mathematics, page 467</br>
+		float angle = acos(cosTheta);</br>
+		return (sin(((float)(1) - a) * angle) * x + sin(a * angle) * z) / sin(angle);</br>
+	}</br>
+</code>
+<p>
+Where x,y are Quaternions/Vectors and a is a floating point number representing the
+time factor.
+</p>
+
+<h4>Euler</h4>
+<p>
+Attempt to Linerally interpolates the rotation transformations by
+converting the given quaternions to Euler angles, and then
+interpolating them as vectors according to LERP.
+</p>
+<p>
+This is likely to be problematic.
+</p>
+
+<h4>Matrix</h4>
+<p>
+Attempt to Linerally interpolates the rotation transformations by
+converting the given quaternions to 4v4 Homogenous matrixes;
+convert them back to Quaternions and then linearally interpolate.
+</p>
+<p>
+It isn't clear to be how to interpolate from a matrix without converting
+the matrix to some other orientation representation.
+
+Internally in this application all rotations are quaternions and all
+transformations are computed through matrix transformations.
+</p>
+
+<h3>Meshes</h3>
+<p>
+There are four selectable meshes given by "helpful" codenames.
+George, Dave, Chebadiah, and "Bone".
+
+All meshes are imported in both a "Basic" and "Skinned" configuration.
+"Basic" meshes lack animations or bones or skinning.
+While "Skinned" meshes have each vertex assignment with a vertex weight
+to a up to four given bones that adds up to "1".
+
+Skinned meshes should each with the exception of "Bone" have at least one animation.
+</p>
+<ul>
+	<li>
+		<p>George represents a sort of "Doll-like" mesh.</p>
+	</li>
+	<li>
+		<p>Dave represents a low poly character.</p>
+	</li>
+	<li>
+		<p>Chebadiah is "Cheb" from the assignments with my own custom
+		animations.</p>
+	</li>
+	<li>
+		<p>"Bone" was for testing UV mappings for a basic unit cube
+		to test scale, basic transformations and so on,
+		it is imported with "one" bone.</p>
+	</li>
+</ul>
+<h3>Animation Modes</h3>
+<p>
+There are 6 animation modes, each one enables a different way of viewing and 
+interacting with the selected meshes.
+</p>
+<ul>
+	<li>
+		<p>TPOSE just loads the basic mesh with default T-Pose.</p>
+	</li>
+	<li>
+		<p>Free uses the Kinect in real time but doesn't record anything.</p>
+	</li>
+	<li>
+		<p>View allows frame by frame precision viewing of the selected animation
+		for step by step progression through each frame of the animation.</p>
+	</li>
+	<li>
+		<p>Insert/Kinect allows for the insertion of keyframes recorded from the Kinect.</p>
+	</li>
+	<li>
+		<p>Insert/Pose allows for the insertion of keyframes recorded from
+		the user posing the mesh manually through direction
+		bone manipulation.</p>
+	</li>
+	<li>
+		<p>Player allows to for animation playback from the currently selected
+		animation.</p>
+	</li>
+</ul>
+<h3>Animation</h3>
+<p>
+Each of the provided meshes should have at least one default animation imported
+from blender.
+
+But a new blank animation can be created by selecting the "new Animation" option
+from the drop down.
+</p>
+<h3>Camera</h3>
+<img src="menu_circle_selection.png">
+<p>
+The scene camera has a position represented as a x,y,z component vector.
+Merely selected the "+" button to the left of "Position".
+Then select the component you wish to modifier, select the displayed number,
+and then to best modify if, input a number and then click away, do not press enter.
+
+Additionally there are +/- buttons to the right of the input field,
+and a 'dot' that can be clicked, clicking on the dot brings up a white circle.
+
+Holding down the left mouse button when this circle is displayed, and then dragging
+the mouse around the edge of the white circle, and adjust the number to the left quickly.
+</p>
+<h3>ObjRotation</h3>
+<p>
+This allows to rotate the current mesh according to x,y,z in Euler angles.
+
+Currently it does not rotate the mesh's skeleton if Insert/Pose mode is selected.
+</p>
+
+<h3>CamRotation</h3>
+<p>
+This allows to rotate the camera around the origin of the scene in
+x,y,z euler angles ala an "orbit".
+</p>
+<h3>ObjPosition</h3>
+<p>
+This allows to translate the mesh through the scene according to
+global x,y,z coordinates.
+</p>
+<h3>DirLight1</h3>
+<p>
+Depending on the current animation mode we can adjust the ambient lighting
+of the scene, it's colour and intensity.
+
+This was mainly for the shaders.
+</p>
+<h3>Insert Keyframe</h3>
+<p>
+Select the '+' button to the left of the input field for "Current Frame"
+to select a "time" in seconds in the current animation to insert a new key frame.
+
+This is tied to Set Duration; the max keyframe is equal to maximum duration value
+set in Set Duration.
+</p>
+
+<h3>Set Duration</h3>
+<p>
+Animations usually have a certain total amount of time it takes to complete the animation;
+and thus there can be a maximum number of keyframes equal to the animation time (as an int).
+
+As duration is set to being larger the longer it should take for the animation to complete.
+</p>
+
+<h1>Usage</h1>
+<p>
+Select "George" for best results of Mesh.
+Select "new Animation" (although this works for other animations to "overwrite" them).
+Select "Insert/Kinect" is not already selected.
+Make sure the Actor is standing clearly in the suggested space in front of the Kinect.
+(Suggested meaning based on your own testing as to how far away and at what angle
+best captures your movements using the Kinect Studio).
+Set the new Duration of the animation to something appropriate, such as 30.
+Select which frame under "Current Frame" to insert a new frame, remember each
+increment corresponds to a "second" in animation time.
+Click "Insert Keyframe".
+</p>
+<p>
+To play back the animation after you've finished inserting new keyframes,
+select "Player" under animation modes.
+
+Or "View" and manually select which frame to observe under "Current Frame".
+</p>
+</div>
+
+<div id="tableofcontents" style="width: 600px">
+<h4>Index</h4>
+<ol>
+	<li><p><a href="Main.html">Back to Main/Index</a></p></li>
+	<li><p><a href="Kinect.html">Usage (Kinect)</a></p></li>
+	<li><p><a href="Assignment1.html">Usage (Assignment 1).</a></p></li>
+	<li><p><a href="Assignment2.html">Usage (Assignment 2).</a></p></li>
+	<li><p><a href="Blender.html">Blender.</a></p></li>
+	<li><p><a href="Interpolation.html">Interpolation.</a></p></li>
+	<li><p><a href="Structure.html">Project/Code Structure.</a></p></li>
+	<li><p><a href="Issues.html">Issues.</a></p></li>
+</ol>
+</div>
+<div id="footer" style="width: 100%;">
+<p>(c)Blayne Bradley 2016</p> 
+</div>
+</body>
+</html>

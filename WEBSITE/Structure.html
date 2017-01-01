@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Blayne's 3D Kinect Project: Structure</title>
+<link rel="stylesheet" href="Main.css">
+</head>
+<body>
+
+<h1>Codebase & Structure</h1>
+<div id="Content" style="width: 600px;">
+<p>
+GLM (Opengl Math), ASSIMP (The Open Asset Importer Library) were the two
+primary libraries used for this project.
+
+Assimp has it's own internal representation for vectors, matrices, and orientations.
+GLM's allow for easy matrix operations using the (*) operator that can be passed to
+the appropriate shaders.
+
+The application is designed according to suggestions from the olgdev tutorials 
+(link in the project proposal document), which is structured around calling the
+appropriate call backs.
+
+Picking is handled through a hack where you give every mesh rendered in the scene a
+unique colour that corresponds to an id that is associated with the corresponding bone.
+
+The kinect's orientations are converted into local orientations through a matrix operations
+by multiplying with the inverted parent transform of the selected mesh's bone.
+
+There is some "masking" functionality implemented but not fully made use of where in theory
+I could mask it so only the upper body used the kinect's orientations while allowing for manual
+posing of the legs but I never got around to fully implementing this.
+
+But for every bone that has a corresponding kinect bone, it's local orientation is overwritten
+from the corresponding kinect joint orientation.
+
+The Kinect handles tracking all bodies captured by the depth sensor, all my code does
+is check the bodyframebuffer each frame and copies the relevent joint orientation data
+each tick.
+</p>
+</div>
+
+<div id="tableofcontents" style="width: 600px">
+<h4>Index</h4>
+<ol>
+	<li><p><a href="Main.html">Back to Main/Index</a></p></li>
+	<li><p><a href="Kinect.html">Usage (Kinect)</a></p></li>
+	<li><p><a href="Assignment1.html">Usage (Assignment 1).</a></p></li>
+	<li><p><a href="Assignment2.html">Usage (Assignment 2).</a></p></li>
+	<li><p><a href="Blender.html">Blender.</a></p></li>
+	<li><p><a href="Interpolation.html">Interpolation.</a></p></li>
+	<li><p><a href="Structure.html">Project/Code Structure.</a></p></li>
+	<li><p><a href="Issues.html">Issues.</a></p></li>
+</ol>
+</div>
+<div id="footer" style="width: 100%;">
+<p>(c)Blayne Bradley 2016</p> 
+</div>
+</body>
+</html>
